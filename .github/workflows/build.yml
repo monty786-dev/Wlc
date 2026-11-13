@@ -5,14 +5,25 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install mingw-w64 (64-bit + 32-bit)
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 make
+      - name: Show repository files
+        run: ls -la
       - name: Build
-        run: make all
+        shell: bash
+        run: |
+          set -o pipefail
+          make all 2>&1 | tee build.log
+      - name: Show the real errors
+        if: failure()
+        shell: bash
+        run: |
+          grep -nE "error|undefined reference|No rule to make|\*\*\*" build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: TaskbarDesktopByMonty
           path: |
@@ -22,3 +33,5 @@ jobs:
             MontyShell32.exe
             WindowLookChanger64.exe
             WindowLookChanger32.exe
+            build.log
+          if-no-files-found: warn
