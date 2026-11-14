@@ -1,6 +1,6 @@
 # Builds for 64-bit and 32-bit Wine with mingw-w64:
 #   WindowLookChanger*.exe  (title-bar skinner)   MontyShell*.exe (taskbar/start/desktop/settings)   MontySetup*.exe (installer with both embedded)
-CFLAGS  = -O2 -Wall -Wno-unused-function -Wno-unused-variable -Wno-misleading-indentation -Wno-unused-but-set-variable
+CFLAGS  = -std=gnu11 -O2 -Wall -Wno-error -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-unused-function -Wno-unused-variable -Wno-misleading-indentation -Wno-unused-but-set-variable
 LIBS    = -luser32 -lgdi32 -lcomdlg32 -lshell32 -ladvapi32 -lmsimg32 -lkernel32
 LDFLAGS = -mwindows -static -static-libgcc -s
 SKIN_H  = common.h theme.h img.h draw.h skin.h app.h ui1.h ui2.h
