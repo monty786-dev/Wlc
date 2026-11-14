@@ -1,6 +1,17 @@
 /* mmisc.h - custom cursor, keyboard assist signal, window-look-changer bridge, autostart */
 
 /* ---------- custom cursor ---------- */
+/* system cursor ids (the Windows headers only define these when OEMRESOURCE is set before windows.h) */
+#ifndef OCR_NORMAL
+#define OCR_NORMAL      32512
+#define OCR_IBEAM       32513
+#define OCR_WAIT        32514
+#define OCR_CROSS       32515
+#define OCR_SIZEALL     32646
+#define OCR_NO          32648
+#define OCR_HAND        32649
+#define OCR_APPSTARTING 32650
+#endif
 static HBITMAP MkDib(HDC dc, int w, int h, void **bits) {
     BITMAPINFO bi; memset(&bi, 0, sizeof bi);
     bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
