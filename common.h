@@ -1,6 +1,7 @@
 /* common.h - shared definitions (single translation unit, included by wlc.c) */
 #define UNICODE
 #define _UNICODE
+#define OEMRESOURCE            /* OCR_* cursor ids */
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 #include <windows.h>
@@ -61,9 +62,11 @@ typedef struct {
 
 /* ---- globals ---- */
 static HINSTANCE g_inst;
-static HWND g_main, g_status;
+static HWND g_main, g_status, g_wlStatus;
+static int g_winAnimMs;
 static HFONT g_fUi, g_fSmall, g_ovFont;
 static int  g_dark = 1, g_mgrTop = 0, g_auto = 1, g_sysApply = 1, g_bg = 0;
+static int  g_alpha = 255;
 static int  g_themeIdx = 0, g_iconOver = -1, g_hasCol = 0, g_presetAll = 0;
 static int  g_showPin = 1, g_showShade = 1, g_showSnap = 1, g_hideG = 0;   /* optional buttons for every title bar */
 static void RecalcHide(void) {
@@ -104,6 +107,7 @@ static void SetStatus(const wchar_t *fmt, ...) {
     wchar_t buf[300]; va_list ap;
     va_start(ap, fmt); _vsnwprintf(buf, 299, fmt, ap); va_end(ap); buf[299] = 0;
     if (g_status) SetWindowTextW(g_status, buf);
+    if (g_wlStatus) SetWindowTextW(g_wlStatus, buf);
 }
 static HFONT MakeFont(const wchar_t *face, int px, int bold) {
     return CreateFontW(-px, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0,

@@ -148,9 +148,37 @@ static void DrawStartIcon(HDC dc, const RECT *rc, int p, COLORREF col, COLORREF 
     SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pen); DeleteObject(br);
 }
 
+/* user supplied .png/.ico/image for any icon (slots 0..10 = UI_* kinds, 11 = start button) */
+static void DrawImgBig(HDC dc, const Img *im, const RECT *rc) {
+    int s = (rc->bottom - rc->top < rc->right - rc->left ? rc->bottom - rc->top : rc->right - rc->left) - 6, dw, dh, x, y;
+    if (s < 8) s = 8; dw = dh = s;
+    if (im->kind != 1 && im->w > 0 && im->h > 0) { if (im->w > im->h) dh = s * im->h / im->w; else dw = s * im->w / im->h; }
+    x = (rc->left + rc->right) / 2 - dw / 2; y = (rc->top + rc->bottom) / 2 - dh / 2;
+    if (im->kind == 1) DrawIconEx(dc, x, y, im->ico, dw, dh, 0, NULL, DI_NORMAL);
+    else {
+        HDC m = CreateCompatibleDC(dc);
+        if (m) {
+            HBITMAP o = (HBITMAP)SelectObject(m, im->bmp);
+            if (im->kind == 2) { BLENDFUNCTION bf; bf.BlendOp = AC_SRC_OVER; bf.BlendFlags = 0; bf.SourceConstantAlpha = 255; bf.AlphaFormat = AC_SRC_ALPHA; AlphaBlend(dc, x, y, dw, dh, m, 0, 0, im->w, im->h, bf); }
+            else TransparentBlt(dc, x, y, dw, dh, m, 0, 0, im->w, im->h, RGB(255,0,255));
+            SelectObject(m, o); DeleteDC(m);
+        }
+    }
+}
+static BOOL DrawSlotImg(HDC dc, int slot, const RECT *rc) {
+    Img *im; if (slot < 0 || slot > 11 || !S_icon[slot][0]) return FALSE;
+    im = ImgGet(S_icon[slot]); if (!im) return FALSE;
+    DrawImgBig(dc, im, rc); return TRUE;
+}
+static void DrawStartBtn(HDC dc, const RECT *rc, COLORREF col, COLORREF bg) {
+    if (DrawSlotImg(dc, 11, rc)) return;
+    DrawStartIcon(dc, rc, g.stIcon, col, bg);
+}
+
 /* ---- Vertical-bar / panel icons: 15 presets = 5 frames x 3 weights ---- */
 enum { UI_POWER, UI_SETTINGS, UI_RUN, UI_PROGRAMS, UI_SYSTEM, UI_LIST, UI_TILES, UI_ADD, UI_SEARCH, UI_DESK, UI_USER };
 static void DrawUiIcon(HDC dc, int kind, const RECT *rc, COLORREF col) {
+    if (DrawSlotImg(dc, kind, rc)) return;
     int cx = (rc->left + rc->right) / 2, cy = (rc->top + rc->bottom) / 2, f = g.pIcon % 5, wt = g.pIcon / 5 + 1, q = 6, i;
     int fh = (rc->bottom - rc->top < rc->right - rc->left ? rc->bottom - rc->top : rc->right - rc->left) / 2 - 1;
     COLORREF gc = g.pTint ? col : RGB(200,200,200), ink = gc; HPEN pen, op; HBRUSH br, nb = (HBRUSH)GetStockObject(NULL_BRUSH), ob; POINT p[4];

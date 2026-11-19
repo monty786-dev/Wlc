@@ -3,7 +3,7 @@ static int g_stDragTile = -1;
 static int g_stFilter, g_stScroll, g_stNvis, g_stVis[MAXAPPS], g_stDirty = 1, g_stMenu, g_stW, g_stH;
 static int g_stHotK, g_stHotI = -1;            /* hot kinds: 1 vbar button, 2 app row, 3 tile, 4 add, 5 filter, 6 user */
 static wchar_t g_stSearch[64]; static HWND g_stEdit;
-static RECT rVbar, rHead, rEdit, rAdd, rFilt, rApps, rTiles, rVb[7];
+static RECT rVbar, rHead, rEdit, rAdd, rFilt, rApps, rTiles, rVb[7], rShuf;
 static HBITMAP g_avBmp, g_bgBmp; static int g_avW, g_avH, g_bgW, g_bgH; static wchar_t g_avPath[MAX_PATH], g_bgPath[MAX_PATH];
 static int g_tcx[MAXL], g_tcy[MAXL], g_ttx[MAXL], g_tty[MAXL], g_cell, g_stAnimOn;
 #define TGAP 4
@@ -16,21 +16,36 @@ static void StSize(int *w, int *h) {
     if (*w > wa.right - wa.left) *w = wa.right - wa.left; if (*h > wa.bottom - wa.top) *h = wa.bottom - wa.top;
 }
 static void StLayout(int w, int h) {
-    int vb = ScaleI(52), x0 = vb, pad = 8, btn = ScaleI(44), i, y, ed = ScaleI(34), top, bl, br, bt, bb, bw;
-    SetRect(&rVbar, 0, 0, vb, h);
-    for (i = 0; i < 4; i++) SetRect(&rVb[i], 4, 6 + i * (btn + 2), vb - 4, 6 + i * (btn + 2) + btn);
-    for (i = 0; i < 3; i++) SetRect(&rVb[6 - i], 4, h - 6 - btn - i * (btn + 2), vb - 4, h - 6 - i * (btn + 2));
-    SetRect(&rHead, x0 + pad, pad, w - pad, pad + ScaleI(44));
-    y = pad + ScaleI(44) + 6;
-    SetRect(&rAdd, w - pad - ed, y, w - pad, y + ed);
+    int vb = ScaleI(52), pad = 8, btn = ScaleI(44), i, y, ed = ScaleI(34), cl, ct, cr, cb, top, bl, br, bt, bb, bw, side, a1;
+    switch (g.stBarPos) {
+    case 1: SetRect(&rVbar, w - vb, 0, w, h); cl = 0; ct = 0; cr = w - vb; cb = h; break;
+    case 2: SetRect(&rVbar, 0, 0, w, vb); cl = 0; ct = vb; cr = w; cb = h; break;
+    case 3: SetRect(&rVbar, 0, h - vb, w, h); cl = 0; ct = 0; cr = w; cb = h - vb; break;
+    default: SetRect(&rVbar, 0, 0, vb, h); cl = vb; ct = 0; cr = w; cb = h; break;
+    }
+    for (i = 0; i < 7; i++) {                                   /* first four from the start, run/settings/power from the end */
+        int k = i < 4 ? i : 6 - i, fromEnd = (i >= 4);
+        if (g.stBarPos < 2) { int yy = fromEnd ? h - 6 - btn - k * (btn + 2) : 6 + k * (btn + 2); SetRect(&rVb[i], rVbar.left + 4, yy, rVbar.right - 4, yy + btn); }
+        else { int xx = fromEnd ? w - 6 - btn - k * (btn + 2) : 6 + k * (btn + 2); SetRect(&rVb[i], xx, rVbar.top + 4, xx + btn, rVbar.bottom - 4); }
+    }
+    SetRect(&rHead, cl + pad, ct + pad, cr - pad, ct + pad + ScaleI(44));
+    y = ct + pad + ScaleI(44) + 6;
+    SetRect(&rAdd, cr - pad - ed, y, cr - pad, y + ed);
     SetRect(&rFilt, rAdd.left - 4 - ScaleI(100), y, rAdd.left - 4, y + ed);
-    SetRect(&rEdit, x0 + pad, y, rFilt.left - 4, y + ed);
-    top = y + ed + 6; bl = x0 + pad; br = w - pad; bt = top; bb = h - pad; bw = br - bl;
-    SetRectEmpty(&rApps); SetRectEmpty(&rTiles);
+    SetRect(&rEdit, cl + pad, y, rFilt.left - 4, y + ed);
+    top = y + ed + 6; bl = cl + pad; br = cr - pad; bt = top; bb = cb - pad; bw = br - bl;
+    SetRectEmpty(&rApps); SetRectEmpty(&rTiles); SetRectEmpty(&rShuf);
     if (g.showApps && g.showTiles) {
-        if (bw >= ScaleI(470)) { int aw = bw * 45 / 100; SetRect(&rApps, bl, bt, bl + aw, bb); SetRect(&rTiles, bl + aw + 8, bt, br, bb); }
-        else { int ah = (bb - bt) * 55 / 100; SetRect(&rApps, bl, bt, br, bt + ah); SetRect(&rTiles, bl, bt + ah + 6, br, bb); }
+        side = (g.stSplit == 1) || (g.stSplit == 0 && bw >= ScaleI(470)); a1 = g.stFirst ? 0 : 1;       /* a1: apps come first */
+        if (side) { int aw = bw * 45 / 100, tw = bw - aw - 8;
+            if (a1) { SetRect(&rApps, bl, bt, bl + aw, bb); SetRect(&rTiles, bl + aw + 8, bt, br, bb); }
+            else { SetRect(&rTiles, bl, bt, bl + tw, bb); SetRect(&rApps, bl + tw + 8, bt, br, bb); }
+        } else { int ah = (bb - bt) * 55 / 100, th = (bb - bt) - ah - 6;
+            if (a1) { SetRect(&rApps, bl, bt, br, bt + ah); SetRect(&rTiles, bl, bt + ah + 6, br, bb); }
+            else { SetRect(&rTiles, bl, bt, br, bt + th); SetRect(&rApps, bl, bt + th + 6, br, bb); }
+        }
     } else if (g.showApps) SetRect(&rApps, bl, bt, br, bb); else if (g.showTiles) SetRect(&rTiles, bl, bt, br, bb);
+    if (rTiles.right > rTiles.left) SetRect(&rShuf, rTiles.right - ScaleI(84), rTiles.top, rTiles.right, rTiles.top + ScaleI(22));
 }
 static int RowH(void) { return ScaleI(38); }
 
@@ -102,7 +117,7 @@ static void StTilesLayout(void) {
         }
         g_ttx[i] = rTiles.left + px * (g_cell + TGAP); g_tty[i] = rTiles.top + py * (g_cell + TGAP) + ScaleI(24);
         if (i == g_stDragTile) continue;
-        if (!g.stTileAnim || g_tcx[i] == 0) { g_tcx[i] = g_ttx[i]; g_tcy[i] = g_tty[i]; }
+        if (!g.stTileAnim || !g.animOn || g_tcx[i] == 0) { g_tcx[i] = g_ttx[i]; g_tcy[i] = g_tty[i]; }
     }
 }
 static void TileRect(int i, RECT *r) {
@@ -154,6 +169,7 @@ static void StPaint(HDC dc, int w, int h) {
     /* tiles */
     if (rTiles.right > rTiles.left) {
         q = rTiles; q.bottom = q.top + ScaleI(22); SelectObject(dc, g_fTbB); Txt(dc, L"Pinned", &q, DT_SINGLELINE | DT_VCENTER, pt); SelectObject(dc, g_fTb);
+        RRect(dc, &rShuf, ScaleI(8), (g_stHotK == 8) ? P.acc : Blend(P.panel, pt, 14), Blend(P.panel, pt, 25)); q = rShuf; Txt(dc, L"Shuffle", &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, (g_stHotK == 8) ? P.accTxt : pt);
         StTilesLayout();
         for (i = 0; i < g_nL[L_TILE]; i++) {
             int sz; TileRect(i, &r);

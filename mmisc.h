@@ -122,23 +122,15 @@ static void KbdTick(void) {
     } else if (!now_in) { g_kbSince = 0; if (g_kbWas) { KbdSignal(0); g_kbWas = 0; } }
 }
 
-/* ---------- Window Look Changer bridge (the v2 skin app) ---------- */
+/* ---------- window look changer: runs inside the shell now ---------- */
 static void SkinBridge(void) {
-    HWND w = FindWindowW(L"WLCMain", NULL);
-    WritePrivateProfileStringW(L"cfg", L"theme", S_theme, g_ini);
-    WrI(L"alpha", g.wlAlpha * 255 / 100); WrI(L"sys", g.wlAll); WrI(L"auto", g.wlOn);
-    if (g.wlOn) {
-        if (!w) {
-            wchar_t p[MAX_PATH]; wcscpy(p, g_dir); wcscat(p, L"WindowLookChanger.exe");
-            if (GetFileAttributesW(p) != INVALID_FILE_ATTRIBUTES) ShellExecuteW(NULL, L"open", p, L"/bg", g_dir, SW_HIDE);
-        } else PostMessageW(w, WM_APP + 3, 0, 0);
-    } else if (w) PostMessageW(w, WM_QUITAPP, 0, 0);
+    int i;
+    g_auto = g.wlOn; g_sysApply = g.wlAll; g_alpha = g.wlAlpha * 255 / 100; if (g_alpha < 60) g_alpha = 60; if (g_alpha > 255) g_alpha = 255;
+    for (i = 0; i < g_nskins; i++) SkinAlpha(g_skins[i]);
+    if (!g.wlOn) SkinRemoveAll();
+    ApplyLookAll();
 }
-static void OpenSkinUi(void) {
-    HWND w = FindWindowW(L"WLCMain", NULL);
-    if (w) PostMessageW(w, WM_SHOWAPP, 0, 0);
-    else { wchar_t p[MAX_PATH]; wcscpy(p, g_dir); wcscat(p, L"WindowLookChanger.exe"); ShellExecuteW(NULL, L"open", p, NULL, g_dir, SW_SHOWNORMAL); }
-}
+static void OpenSkinUi(void) { if (g_main) { ShowWindow(g_main, SW_SHOWNORMAL); SetForegroundWindow(g_main); InvalidateRect(g_main, NULL, TRUE); } }
 
 /* ---------- autostart ---------- */
 static void SetAutostart(int on) {

@@ -5,12 +5,7 @@ static BOOL MBrowse(HWND owner, wchar_t *f, const wchar_t *filter) {
     return GetOpenFileNameW(&o);
 }
 static int g_stDK, g_stDI, g_stMoved, g_stScroll0, g_stDragMode, g_stOffX, g_stOffY; static POINT g_stDP;
-static BOOL PickColor(COLORREF *io) {
-    static COLORREF cust[16]; CHOOSECOLORW cc; HWND own = GetActiveWindow();
-    memset(&cc, 0, sizeof cc); cc.lStructSize = sizeof cc; cc.hwndOwner = own; cc.rgbResult = *io; cc.lpCustColors = cust; cc.Flags = CC_FULLOPEN | CC_RGBINIT;
-    return ChooseColorW(&cc) ? (*io = cc.rgbResult, TRUE) : FALSE;
-}
-enum { HK_VB = 1, HK_APP, HK_TILE, HK_ADD, HK_FILT, HK_USER, HK_CORNER };
+enum { HK_VB = 1, HK_APP, HK_TILE, HK_ADD, HK_FILT, HK_USER, HK_CORNER, HK_SHUF };
 
 static int StHit(int x, int y, int *idx) {
     POINT p; int i; p.x = x; p.y = y; *idx = -1;
@@ -18,6 +13,7 @@ static int StHit(int x, int y, int *idx) {
     if (PtInRect(&rAdd, p)) return HK_ADD;
     if (PtInRect(&rFilt, p)) return HK_FILT;
     if (PtInRect(&rHead, p)) return HK_USER;
+    if (rShuf.right > rShuf.left && PtInRect(&rShuf, p)) return HK_SHUF;
     if (rTiles.right > rTiles.left && PtInRect(&rTiles, p)) {
         for (i = g_nL[L_TILE] - 1; i >= 0; i--) { RECT r; TileRect(i, &r); if (PtInRect(&r, p)) { *idx = i; return (x > r.right - 16 && y > r.bottom - 16) ? HK_CORNER : HK_TILE; } }
     }
@@ -39,12 +35,40 @@ static void StPosition(void) {
     SetLayeredWindowAttributes(g_st, 0, (BYTE)(g.stOpacity * 255 / 100), LWA_ALPHA);
     if (g.pRound && g.stSize != 3) RoundRgn(g_st, w, h, ScaleI(12)); else SetWindowRgn(g_st, NULL, TRUE);
 }
-static void StartHide(void) { if (g_st && IsWindowVisible(g_st)) ShowWindow(g_st, SW_HIDE); g_stOpen = 0; g_stMenu = 0; if (g_tb) InvalidateRect(g_tb, NULL, FALSE); }
+static int g_stAnimOn2, g_stAnimIn; static DWORD g_stAnimT0; static RECT g_stFin;
+static void StAnimApply(int p) {                       /* p = 0..100 visible */
+    int mode = g.stAnim, base = g.stOpacity * 255 / 100, w = g_stFin.right - g_stFin.left, h = g_stFin.bottom - g_stFin.top, dx = 0, dy = 0, a = base, off = 100 - p;
+    if (mode == 1 || mode == 4 || mode == 5) a = base * p / 100;
+    if (mode == 2 || mode == 4) { if (g.tbPos == 0) dy = h * off / 100; else if (g.tbPos == 1) dy = -h * off / 100; else if (g.tbPos == 2) dx = -w * off / 100; else dx = w * off / 100; }
+    if (mode == 3) dx = -w * off / 100;
+    if (mode == 5) dy = (g.tbPos == 1 ? -1 : 1) * 28 * off / 100;
+    SetWindowPos(g_st, NULL, g_stFin.left + dx, g_stFin.top + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SetLayeredWindowAttributes(g_st, 0, (BYTE)a, LWA_ALPHA);
+}
+static void StAnimStep(void) {
+    int dur = AnimMs(180), t, p; DWORD el = GetTickCount() - g_stAnimT0; if (dur < 1) dur = 1;
+    t = el >= (DWORD)dur ? 100 : (int)(el * 100 / dur); p = g_stAnimIn ? t : 100 - t; StAnimApply(p);
+    if (t >= 100) {
+        KillTimer(g_st, 2); g_stAnimOn2 = 0;
+        if (!g_stAnimIn) { ShowWindow(g_st, SW_HIDE); StAnimApply(100); }
+    }
+}
+static void StartHide(void) {
+    g_stOpen = 0; g_stMenu = 0; if (g_tb) InvalidateRect(g_tb, NULL, FALSE);
+    if (!g_st || !IsWindowVisible(g_st)) return;
+    if (g_stAnimOn2 && !g_stAnimIn) return;
+    if (g.animOn && g.stAnim > 0 && AnimMs(180) > 0) { g_stAnimIn = 0; g_stAnimOn2 = 1; g_stAnimT0 = GetTickCount(); SetTimer(g_st, 2, 16, NULL); }
+    else ShowWindow(g_st, SW_HIDE);
+}
 static void StartShow(void) {
     if (!g_st) return;
     if (g_stDirty || g_napps == 0) StReload(); else StBuildVisible();
     SendMessageW(g_stEdit, WM_SETFONT, (WPARAM)g_fTb, TRUE);
-    StPosition(); ShowWindow(g_st, SW_SHOW); SetForegroundWindow(g_st); InvalidateRect(g_st, NULL, FALSE);
+    KillTimer(g_st, 2); g_stAnimOn2 = 0;
+    StPosition(); GetWindowRect(g_st, &g_stFin);
+    if (g.animOn && g.stAnim > 0 && AnimMs(180) > 0) { g_stAnimIn = 1; g_stAnimOn2 = 1; g_stAnimT0 = GetTickCount(); StAnimApply(0); ShowWindow(g_st, SW_SHOW); SetTimer(g_st, 2, 16, NULL); }
+    else ShowWindow(g_st, SW_SHOW);
+    SetForegroundWindow(g_st); InvalidateRect(g_st, NULL, FALSE);
     g_stOpen = 1; if (g_tb) InvalidateRect(g_tb, NULL, FALSE);
 }
 static void StartToggle(void) { if (g_stOpen) StartHide(); else StartShow(); }
@@ -76,7 +100,9 @@ static void VbarAction(int i) {
     switch (i) {
     case 0: g.showApps = !g.showApps; if (!g.showApps && !g.showTiles) g.showTiles = 1; MWr(L"cfg", L"showApps", g.showApps); MWr(L"cfg", L"showTiles", g.showTiles); break;
     case 1: g.showTiles = !g.showTiles; if (!g.showApps && !g.showTiles) g.showApps = 1; MWr(L"cfg", L"showApps", g.showApps); MWr(L"cfg", L"showTiles", g.showTiles); break;
-    case 2: g_stFilter = 0; g.showApps = 1; StBuildVisible(); break;
+    case 2: {                                        /* Programs: cascading menu of Start Menu folders */
+        POINT pt; pt.x = rVb[2].right; pt.y = rVb[2].top; ClientToScreen(g_st, &pt);
+        g_stMenu++; ProgramsMenu(g_st, pt.x, pt.y); g_stMenu--; StartHide(); return; }
     case 3: g_stFilter = 4; g.showApps = 1; StBuildVisible(); break;
     case 4: {
         wchar_t f[MAX_PATH]; GetWindowTextW(g_stEdit, f, MAX_PATH);
@@ -119,12 +145,12 @@ static void StAnimTick(void) {
         int dx, dy; if (i == g_stDragTile) continue;
         dx = g_ttx[i] - g_tcx[i]; dy = g_tty[i] - g_tcy[i];
         if (dx > -3 && dx < 3 && dy > -3 && dy < 3) { g_tcx[i] = g_ttx[i]; g_tcy[i] = g_tty[i]; continue; }
-        g_tcx[i] += dx * 35 / 100 + (dx > 0 ? 1 : -1); g_tcy[i] += dy * 35 / 100 + (dy > 0 ? 1 : -1); moving = 1;
+        g_tcx[i] += (dx * 35 / 100) * g.animSpeed / 100 + (dx > 0 ? 1 : -1); g_tcy[i] += (dy * 35 / 100) * g.animSpeed / 100 + (dy > 0 ? 1 : -1); moving = 1;
     }
     InvalidateRect(g_st, &rTiles, FALSE);
     if (!moving) { KillTimer(g_st, 1); g_stAnimOn = 0; }
 }
-static void StKick(void) { if (g.stTileAnim && !g_stAnimOn) { g_stAnimOn = 1; SetTimer(g_st, 1, 16, NULL); } }
+static void StKick(void) { if (g.stTileAnim && g.animOn && !g_stAnimOn) { g_stAnimOn = 1; SetTimer(g_st, 1, 16, NULL); } }
 
 static LRESULT CALLBACK StProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
@@ -136,7 +162,7 @@ static LRESULT CALLBACK StProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (bm) DeleteObject(bm); if (mem) DeleteDC(mem);
         EndPaint(h, &ps); StKick(); return 0; }
     case WM_ACTIVATE: if (LOWORD(w) == WA_INACTIVE && !g_stMenu && !g_stDragMode) StartHide(); return 0;
-    case WM_TIMER: if (w == 1) StAnimTick(); return 0;
+    case WM_TIMER: if (w == 1) StAnimTick(); else if (w == 2) StAnimStep(); return 0;
     case WM_CTLCOLOREDIT: {
         static HBRUSH br; static COLORREF last = (COLORREF)-1; COLORREF c = Blend(P.panel, P.panelTxt, 10);
         if (c != last) { if (br) DeleteObject(br); br = CreateSolidBrush(c); last = c; }
@@ -179,6 +205,7 @@ static LRESULT CALLBACK StProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (!g_stMoved) {
             if (g_stDK == HK_VB && k == HK_VB && idx == g_stDI) VbarAction(idx);
             else if (g_stDK == HK_ADD && k == HK_ADD) AddFlow();
+            else if (g_stDK == HK_SHUF && k == HK_SHUF) { ShuffleTiles(); StKick(); InvalidateRect(h, NULL, FALSE); }
             else if (g_stDK == HK_FILT && k == HK_FILT) {
                 HMENU mn = CreatePopupMenu(); POINT pt; int c, i; GetCursorPos(&pt);
                 for (i = 0; i < 6; i++) AppendMenuW(mn, MF_STRING | (i == g_stFilter ? MF_CHECKED : 0), i + 1, FILT_NAMES[i]);

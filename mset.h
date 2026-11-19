@@ -1,18 +1,23 @@
 /* mset.h - settings window: custom touch-friendly list (scroll by drag, toggles, sliders, pickers) */
 enum { ST_TOG, ST_INT, ST_ENUM, ST_COL, ST_STR, ST_FILE, ST_ACT, ST_THEME, ST_FONT };
-enum { A_FAV = 1, A_TILE, A_TB, A_TRAY, A_REMOVE, A_RVX, A_KBX, A_BACKUP, A_RESTORE, A_RESET, A_STAR, A_WLC, A_KBTEST, A_CURAPPLY };
-enum { S_TB, S_VIS, S_RV, S_ST, S_CUR, S_KB, S_WL, S_PER, S_DK, S_APPS, S_BK };
-static const wchar_t *SECS[] = { L"Taskbar", L"Visibility", L"Reveal bar", L"Start & panel", L"Cursor", L"Keyboard", L"Window look", L"Personalize", L"Desktop", L"Apps", L"Backup" };
-#define NSECS 11
+enum { A_FAV = 1, A_TILE, A_TB, A_TRAY, A_REMOVE, A_RVX, A_KBX, A_BACKUP, A_RESTORE, A_RESET, A_STAR, A_WLC, A_KBTEST, A_CURAPPLY, A_SHUF };
+enum { S_TB, S_RV, S_ST, S_ICO, S_CUR, S_KB, S_WL, S_PER, S_DK, S_APPS, S_ANIM, S_GEN };
+#define S_VIS S_TB      /* visibility options live in the Taskbar section */
+#define S_BK S_GEN
+static const wchar_t *SECS[] = { L"Taskbar", L"Reveal bar", L"Start & panel", L"Icons", L"Cursor", L"Keyboard", L"Window look", L"Personalize", L"Desktop", L"Apps", L"Animation", L"General" };
+#define NSECS 12
 static const wchar_t *O_POS[] = { L"Bottom", L"Top", L"Left", L"Right" }, *O_AL[] = { L"Left", L"Middle", L"Right" },
     *O_DIV[] = { L"None", L"Thin", L"Medium", L"Bold" }, *O_FS[] = { L"Keep visible", L"Visible over app", L"Floating icon", L"Hide bar" },
-    *O_AP[] = { L"Full screen", L"Maximized", L"Both" }, *O_RVP[] = { L"Bottom", L"Top" }, *O_RVA[] = { L"Blink", L"Pop-up", L"Slide from edge", L"Slide from left" },
+    *O_AP[] = { L"Full screen", L"Maximized", L"Both" }, *O_RVP[] = { L"Bottom", L"Top", L"Left", L"Right" }, *O_RVA[] = { L"Blink", L"Fade", L"Slide from edge", L"Slide from left", L"Slide from right", L"Grow" },
     *O_SZ[] = { L"Normal", L"Medium", L"Large", L"Full screen" },
     *O_SI[] = { L"Windows flag", L"Windows 98 colours", L"Windows 7 orb", L"Windows 8 tiles", L"Ubuntu circle", L"Arch", L"Mint leaf", L"Xfce mouse", L"Cinnamon", L"KDE K", L"Grid dots", L"Menu lines", L"Diamond", L"Star", L"Heart", L"Disc", L"Letter S", L"Monty M" },
     *O_BM[] = { L"Theme", L"Colour", L"Transparent" }, *O_BG[] = { L"Theme", L"Colour", L"Picture" }, *O_EF[] = { L"None", L"Glass", L"Frosted glass", L"3D" },
     *O_IP[] = { L"Preset 1 thin", L"Preset 2 ring", L"Preset 3 disc", L"Preset 4 box", L"Preset 5 filled box", L"Preset 6 medium", L"Preset 7 ring", L"Preset 8 disc", L"Preset 9 box", L"Preset 10 filled box", L"Preset 11 bold", L"Preset 12 ring", L"Preset 13 disc", L"Preset 14 box", L"Preset 15 filled box" },
     *O_MD[] = { L"None", L"Dark", L"Light", L"AMOLED", L"Rose", L"Sapphire", L"Aero" }, *O_CN[] = { L"Top-left", L"Top-right", L"Bottom-left", L"Bottom-right" },
     *O_FT[] = { L"Crop to fill", L"Fit", L"Stretch", L"Center", L"Tile" },
+    *O_AL2[] = { L"Start (left / top)", L"Middle", L"End (right / bottom)" }, *O_BP[] = { L"Left", L"Right", L"Top", L"Bottom" }, *O_FIRST[] = { L"App list first", L"Pinned tiles first" },
+    *O_SPLIT[] = { L"Automatic", L"Side by side", L"Stacked" }, *O_SANIM[] = { L"None", L"Fade", L"Slide from taskbar", L"Slide from left", L"Fade + slide", L"Pop" },
+    *O_TZ[] = { L"Always in front of windows", L"Normal (windows can cover it)", L"Always behind windows" },
     *FONTS2[] = { L"Segoe UI", L"Tahoma", L"Arial", L"Verdana", L"Trebuchet MS", L"DejaVu Sans", L"Ubuntu", L"Cantarell", L"Noto Sans", L"Courier New", L"Times New Roman", L"Helvetica" };
 
 typedef struct { int sec; const wchar_t *label; int type; int *pi; wchar_t *ps; int lo, hi, step; const wchar_t *const *opts; int nopt; const wchar_t *key; int act; } Set;
@@ -24,6 +29,13 @@ typedef struct { int sec; const wchar_t *label; int type; int *pi; wchar_t *ps; 
 #define FI(s,l,var,key,flt) { s, l, ST_FILE, NULL, var, 0, 0, 0, NULL, 0, key, flt }
 #define AC(s,l,id)          { s, l, ST_ACT,  NULL, NULL, 0, 0, 0, NULL, 0, NULL, id }
 static Set SETS[] = {
+    FI(S_ICO, L"Start button icon", S_icon[11], L"ico11", 3), FI(S_ICO, L"Power icon", S_icon[0], L"ico0", 3), FI(S_ICO, L"Settings icon", S_icon[1], L"ico1", 3),
+    FI(S_ICO, L"Run icon", S_icon[2], L"ico2", 3), FI(S_ICO, L"Programs icon", S_icon[3], L"ico3", 3), FI(S_ICO, L"System apps icon", S_icon[4], L"ico4", 3),
+    FI(S_ICO, L"App list icon", S_icon[5], L"ico5", 3), FI(S_ICO, L"Pinned tiles icon", S_icon[6], L"ico6", 3), FI(S_ICO, L"Add (+) icon", S_icon[7], L"ico7", 3),
+    FI(S_ICO, L"Search icon", S_icon[8], L"ico8", 3), FI(S_ICO, L"Show desktop icon", S_icon[9], L"ico9", 3), FI(S_ICO, L"User icon", S_icon[10], L"ico10", 3),
+    TG(S_ANIM, L"Animations", animOn), SL(S_ANIM, L"Animation speed (%)", animSpeed, 40, 300, 10), EN(S_ANIM, L"Start panel animation", stAnim, O_SANIM, 6),
+    EN(S_ANIM, L"Taskbar show / hide animation", rvAnim, O_RVA, 6), TG(S_ANIM, L"Pinned tile slide animation", stTileAnim), TG(S_ANIM, L"Window title bar fade-in", winFade),
+    TG(S_GEN, L"Open settings when the app starts", openSet),
     EN(S_TB, L"Position", tbPos, O_POS, 4), EN(S_TB, L"Alignment", tbAlign, O_AL, 3), SL(S_TB, L"Taskbar height", tbHeight, 24, 90, 2),
     TG(S_TB, L"Auto-fit width to running apps", tbAutoW), SL(S_TB, L"Icon size", tbIcon, 12, 48, 2), TG(S_TB, L"Show window titles on buttons", tbTitles),
     TG(S_TB, L"Rounded corners", tbRound), SL(S_TB, L"Detach from edge", tbDetach, 0, 40, 1), TG(S_TB, L"Custom taskbar colour", tbUseCol), CL(S_TB, L"Taskbar colour", tbCol),
@@ -31,23 +43,26 @@ static Set SETS[] = {
     TG(S_TB, L"Underline colour from app icon", tbUnderAdapt), EN(S_TB, L"Divider line", tbDivider, O_DIV, 4), TG(S_TB, L"Show clock", tbClock), TG(S_TB, L"Show day name", tbDay),
     TG(S_TB, L"Show-desktop button", tbDesk), TG(S_TB, L"App tray", tbTray), TG(S_TB, L"Hover preview of running apps", tbPreview),
     SL(S_TB, L"Preview width", pvW, 120, 480, 10), SL(S_TB, L"Preview height", pvH, 80, 360, 10), TG(S_TB, L"Classic original look of the theme", tbClassic),
+    EN(S_TB, L"Taskbar layer", tbZ, O_TZ, 3), TG(S_TB, L"App tray as a grid popup", trayGrid), TG(S_TB, L"All-windows preview button", tvOn),
     TG(S_VIS, L"Hide Winlator's built-in taskbar", hideWine), EN(S_VIS, L"Over full-screen apps", fsMode, O_FS, 4), EN(S_VIS, L"Applies to", fsApplies, O_AP, 3),
     TG(S_VIS, L"Start with the container", autoStart), SL(S_VIS, L"Startup delay (seconds)", startDelay, 0, 60, 1),
-    TG(S_RV, L"Reveal bar", rvOn), TG(S_RV, L"Auto-hide taskbar always (normal + desktop mode)", rvAlways), CL(S_RV, L"Bar colour", rvCol), EN(S_RV, L"Bar position", rvPos, O_RVP, 2),
-    EN(S_RV, L"Bar alignment", rvAlign, O_AL, 3), TG(S_RV, L"L-shaped corners", rvL), SL(S_RV, L"Bar opacity", rvOpacity, 10, 100, 5), SL(S_RV, L"Bar height", rvH, 2, 24, 1),
-    SL(S_RV, L"Bar width", rvW, 20, 1600, 20), SL(S_RV, L"Taskbar visible for (seconds)", rvSecs, 1, 30, 1), EN(S_RV, L"Reveal animation", rvAnim, O_RVA, 4), AC(S_RV, L"Add exception app...", A_RVX),
+    TG(S_RV, L"Reveal bar", rvOn), TG(S_RV, L"Auto-hide taskbar always (normal + desktop mode)", rvAlways), CL(S_RV, L"Bar colour", rvCol), EN(S_RV, L"Bar position (screen edge)", rvPos, O_RVP, 4),
+    EN(S_RV, L"Bar alignment", rvAlign, O_AL2, 3), TG(S_RV, L"L shape (width arm + height arm)", rvL), SL(S_RV, L"L shape: height arm length", rvArm, 20, 1600, 20), SL(S_RV, L"Bar opacity", rvOpacity, 10, 100, 5), SL(S_RV, L"Bar height", rvH, 2, 24, 1),
+    SL(S_RV, L"Bar width", rvW, 20, 1600, 20), SL(S_RV, L"Taskbar visible for (seconds)", rvSecs, 1, 30, 1), AC(S_RV, L"Add exception app...", A_RVX),
     EN(S_ST, L"Start panel size", stSize, O_SZ, 4), EN(S_ST, L"Start button icon", stIcon, O_SI, 18), TG(S_ST, L"Custom start button colour", stUseCol), CL(S_ST, L"Start button colour", stCol),
     SS(S_ST, L"User name", S_user, L"user"), FI(S_ST, L"Profile picture", S_pic, L"pic", 0), EN(S_ST, L"Vertical bar background", stBarMode, O_BM, 3), CL(S_ST, L"Vertical bar colour", stBarCol),
     EN(S_ST, L"Panel background", stBgMode, O_BG, 3), CL(S_ST, L"Panel colour", stBgCol), FI(S_ST, L"Panel picture", S_stbg, L"stbg", 0), SL(S_ST, L"Panel opacity", stOpacity, 30, 100, 5),
-    TG(S_ST, L"Different colour per tile", stTileCol), SL(S_ST, L"Tile opacity", stTileAlpha, 30, 100, 5), TG(S_ST, L"Tile move animation", stTileAnim), SL(S_ST, L"Tile size", stTilePx, 40, 160, 4),
+    TG(S_ST, L"Different colour per tile", stTileCol), SL(S_ST, L"Tile opacity", stTileAlpha, 30, 100, 5), SL(S_ST, L"Tile size", stTilePx, 40, 160, 4),
     TG(S_ST, L"Show app list", showApps), TG(S_ST, L"Show pinned tiles", showTiles),
+    EN(S_ST, L"Vertical bar position", stBarPos, O_BP, 4), EN(S_ST, L"Order of app list / tiles", stFirst, O_FIRST, 2), EN(S_ST, L"Arrangement", stSplit, O_SPLIT, 3),
+    AC(S_ST, L"Shuffle tile sizes and colours", A_SHUF),
     TG(S_CUR, L"Custom cursor", curOn), TG(S_CUR, L"Hide cursor", curHide), SL(S_CUR, L"Cursor size", curSize, 16, 64, 2), CL(S_CUR, L"Cursor colour", curCol), CL(S_CUR, L"Cursor border", curBorder),
     FI(S_CUR, L"Normal (.cur .ani .png .ico)", S_cur[0], L"cur0", 1), FI(S_CUR, L"Working in background", S_cur[1], L"cur1", 1), FI(S_CUR, L"Busy / wait", S_cur[2], L"cur2", 1),
     FI(S_CUR, L"Link / grab", S_cur[3], L"cur3", 1), FI(S_CUR, L"Text select", S_cur[4], L"cur4", 1), FI(S_CUR, L"Precision", S_cur[5], L"cur5", 1), FI(S_CUR, L"Move", S_cur[6], L"cur6", 1),
     FI(S_CUR, L"Unavailable", S_cur[7], L"cur7", 1), AC(S_CUR, L"Apply cursor now", A_CURAPPLY),
     TG(S_KB, L"Open Android keyboard on text fields", kbOn), TG(S_KB, L"Only after a click", kbClick), SL(S_KB, L"Delay (ms)", kbDelay, 0, 2000, 50),
     SS(S_KB, L"Bridge command (runs with show/hide)", S_kbCmd, L"kbcmd"), AC(S_KB, L"Add exception app...", A_KBX), AC(S_KB, L"Send test signal", A_KBTEST),
-    TG(S_WL, L"Window look changer", wlOn), SL(S_WL, L"Title bar transparency", wlAlpha, 30, 100, 5), TG(S_WL, L"Apply to all window elements", wlAll), AC(S_WL, L"Open window look changer...", A_WLC),
+    TG(S_WL, L"Window look changer", wlOn), SL(S_WL, L"Title bar transparency", wlAlpha, 30, 100, 5), TG(S_WL, L"Apply to all window elements", wlAll), AC(S_WL, L"Open Theme Lab / window look options...", A_WLC),
     { S_PER, L"Theme", ST_THEME, NULL, NULL, 0, 0, 0, NULL, 0, L"theme", 0 }, EN(S_PER, L"Effect", pEffect, O_EF, 4), SL(S_PER, L"Blur / frost amount", pBlur, 0, 100, 5),
     TG(S_PER, L"Custom accent colour", pAccOn), CL(S_PER, L"Accent colour", pAcc), SL(S_PER, L"Glass shine", pShine, 0, 100, 5), SL(S_PER, L"Glass gloss", pGloss, 0, 100, 5),
     TG(S_PER, L"Shadow", pShadow), TG(S_PER, L"Round all corners", pRound), TG(S_PER, L"Effect on taskbar", effTb), TG(S_PER, L"Effect on start panel", effSt), TG(S_PER, L"Effect on preview", effPv),
@@ -63,13 +78,13 @@ static Set SETS[] = {
 #define NSETS ((int)(sizeof SETS / sizeof SETS[0]))
 
 static int g_setSec, g_setScroll, g_setDrag, g_setMoved, g_setScroll0, g_setSlide = -1; static POINT g_setDP; static int g_setList[NSETS], g_setN;
-static int SetRowH(void) { return ScaleI(54); }
+static int SetRowH(void) { return ScaleI(60); }
 static int SetBarH(void) { return ScaleI(50); }
 
 /* ---- small helpers ---- */
 static void ApplyAll(void) {
     int ti = FindTheme(S_theme); if (ti >= 0) g_themeIdx = ti;
-    g_hasCol = 0; RebuildEff(); BuildPal(); TbRelayout();
+    g_winAnimMs = (g.animOn && g.winFade) ? 220 * 100 / g.animSpeed : 0; RebuildEff(); BuildPal(); TbRelayout();
     if (g_st && g_stOpen) { StPosition(); InvalidateRect(g_st, NULL, FALSE); }
     if (g_dk && g.dkOn) InvalidateRect(g_dk, NULL, FALSE);
     if (g_set) InvalidateRect(g_set, NULL, FALSE);
@@ -112,7 +127,9 @@ static void Changed(const Set *s, BOOL fin) {
         else if (!wcsncmp(k, L"cur", 3)) ApplyCursor();
         else if (!wcsncmp(k, L"wl", 2)) SkinBridge();
         else if (!wcscmp(k, L"dkOn")) { DesktopToggle(); }
-        else if (!wcscmp(k, L"theme")) SkinBridge();
+        else if (!wcscmp(k, L"hideWine")) { if (g.hideWine) WineHide(); else WineShow(); }
+        else if (!wcsncmp(k, L"ico", 3)) ImgClear();
+        else if (!wcscmp(k, L"theme")) { int ti = FindTheme(S_theme); if (ti >= 0) ApplyTheme(ti); }
     }
     ApplyAll();
 }
@@ -138,6 +155,7 @@ static void DoAct(int id) {
     case A_RESET: if (MessageBoxW(g_set, L"Reset ALL settings to defaults?", APP_TITLE, MB_YESNO | MB_ICONWARNING) == IDYES) { CfgReset(); ApplyAll(); ApplyCursor(); SetStatus(L"Settings reset."); } break;
     case A_STAR: ShellExecuteW(NULL, L"open", L"https://github.com/monty786-dev/Winlator-Wine-Look-changer", NULL, NULL, SW_SHOWNORMAL); break;
     case A_WLC: OpenSkinUi(); break;
+    case A_SHUF: ShuffleTiles(); if (g_st) InvalidateRect(g_st, NULL, FALSE); SetStatus(L"Tiles shuffled."); break;
     case A_KBTEST: KbdSignal(1); SetStatus(L"Signal written: %lskbd.show", g_dir); break;
     case A_CURAPPLY: ApplyCursor(); if (!g_curFail) SetStatus(L"Cursor applied."); break;
     }
@@ -145,46 +163,47 @@ static void DoAct(int id) {
 
 /* ---- paint ---- */
 static void SetPaint(HDC dc, int w, int h) {
-    RECT all, r, q, bar; int i, rh = SetRowH(), bh = SetBarH(); wchar_t v[96];
-    SetRect(&all, 0, 0, w, h); FillRectC(dc, 0, 0, w, h, P.panel);
-    SetRect(&bar, 0, 0, w, bh); PaintSurface(dc, &bar, P.barA, P.barB, g.effWin);
+    RECT r, q, bar, card; int i, rh = SetRowH(), bh = SetBarH(); wchar_t v[96]; COLORREF cardBg = Blend(P.panel, P.panelTxt, 7), cardLn = Blend(P.panel, P.panelTxt, 15);
+    FillRectC(dc, 0, 0, w, h, P.panel);
+    SetRect(&bar, 0, 0, w, bh); PaintSurface(dc, &bar, P.barA, P.barB, g.effWin); FillRectC(dc, 0, bh - 3, w, bh, P.acc);
     SelectObject(dc, g_fTbB);
     q = bar; q.right = bh; Txt(dc, L"<", &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.txt);
     q = bar; q.left = w - bh; Txt(dc, L">", &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.txt);
-    q = bar; q.left = bh; q.right = w - bh; Txt(dc, SECS[g_setSec], &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.txt);
+    q = bar; q.left = bh; q.right = w - bh; q.bottom -= 3; Txt(dc, SECS[g_setSec], &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.txt);
     SelectObject(dc, g_fTb);
     {   HRGN rg = CreateRectRgn(0, bh, w, h - ScaleI(26)); SelectClipRgn(dc, rg);
         for (i = 0; i < g_setN; i++) {
             const Set *s = &SETS[g_setList[i]]; int y = bh + i * rh - g_setScroll;
             if (y + rh < bh || y > h) continue;
-            SetRect(&r, 0, y, w, y + rh); FillRectC(dc, 0, y + rh - 1, w, y + rh, Blend(P.panel, P.panelTxt, 14));
-            q = r; q.left = 16; q.right = w - 16;
-            if (s->type == ST_ACT) { RECT b2 = r; InflateRect(&b2, -12, -6); RRect(dc, &b2, 12, P.acc, P.acc); Txt(dc, s->label, &b2, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.accTxt); continue; }
+            SetRect(&r, 0, y, w, y + rh); SetRect(&card, 10, y + 5, w - 10, y + rh - 3);
+            if (s->type == ST_ACT) { RRect(dc, &card, ScaleI(16), P.acc, P.acc); q = card; Txt(dc, s->label, &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.accTxt); continue; }
+            RRect(dc, &card, ScaleI(16), cardBg, cardLn);
+            q = card; q.left += 16; q.right -= 16;
             if (s->type == ST_INT) {
-                int val = *s->pi, tl = 20, tr = w - 20, ty = y + rh - ScaleI(14), kx = tl + (tr - tl) * (val - s->lo) / (s->hi - s->lo ? s->hi - s->lo : 1);
-                q.bottom = y + rh / 2 + 4; Txt(dc, s->label, &q, DT_SINGLELINE | DT_VCENTER, P.panelTxt);
-                _snwprintf(v, 95, L"%d", val); v[95] = 0; Txt(dc, v, &q, DT_SINGLELINE | DT_VCENTER | DT_RIGHT, P.panelDim);
-                FillRectC(dc, tl, ty - 2, tr, ty + 2, Blend(P.panel, P.panelTxt, 25)); FillRectC(dc, tl, ty - 2, kx, ty + 2, P.acc); Disc(dc, kx, ty, ScaleI(9), P.acc, P.acc);
+                int val = *s->pi, tl = card.left + 18, tr = card.right - 18, ty = card.bottom - ScaleI(15), kx = tl + (tr - tl) * (val - s->lo) / (s->hi - s->lo ? s->hi - s->lo : 1);
+                RECT chip; q.bottom = card.top + (card.bottom - card.top) / 2 + 2; Txt(dc, s->label, &q, DT_SINGLELINE | DT_VCENTER, P.panelTxt);
+                _snwprintf(v, 95, L"%d", val); v[95] = 0; SetRect(&chip, card.right - 16 - ScaleI(58), card.top + 8, card.right - 16, card.top + 8 + ScaleI(24)); RRect(dc, &chip, ScaleI(12), Blend(P.panel, P.acc, 30), Blend(P.panel, P.acc, 30)); q = chip; Txt(dc, v, &q, DT_SINGLELINE | DT_VCENTER | DT_CENTER, P.panelTxt);
+                FillRectC(dc, tl, ty - 3, tr, ty + 3, Blend(P.panel, P.panelTxt, 22)); FillRectC(dc, tl, ty - 3, kx, ty + 3, P.acc); Disc(dc, kx, ty, ScaleI(10), P.acc, P.acc); Disc(dc, kx, ty, ScaleI(4), P.accTxt, P.accTxt);
                 continue;
             }
-            { RECT lab = q; lab.right = w - ScaleI(190); Txt(dc, s->label, &lab, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS, P.panelTxt); }
+            { RECT lab = q; lab.right = w - ScaleI(200); Txt(dc, s->label, &lab, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS, P.panelTxt); }
             if (s->type == ST_TOG) {
-                RECT p2; int on = *s->pi; p2.right = w - 16; p2.left = p2.right - 46; p2.top = (r.top + r.bottom) / 2 - 12; p2.bottom = p2.top + 24;
-                RRect(dc, &p2, 24, on ? P.acc : Blend(P.panel, P.panelTxt, 30), on ? P.acc : Blend(P.panel, P.panelTxt, 30));
-                Disc(dc, on ? p2.right - 12 : p2.left + 12, (p2.top + p2.bottom) / 2, 9, W_, W_);
+                RECT p2; int on = *s->pi; p2.right = card.right - 16; p2.left = p2.right - 52; p2.top = (card.top + card.bottom) / 2 - 14; p2.bottom = p2.top + 28;
+                RRect(dc, &p2, 28, on ? P.acc : Blend(P.panel, P.panelTxt, 28), on ? P.acc : Blend(P.panel, P.panelTxt, 28));
+                Disc(dc, on ? p2.right - 14 : p2.left + 14, (p2.top + p2.bottom) / 2, 10, on ? P.accTxt : W_, on ? P.accTxt : W_);
             } else if (s->type == ST_COL) {
-                RECT sq; sq.right = w - 16; sq.left = sq.right - 44; sq.top = (r.top + r.bottom) / 2 - 12; sq.bottom = sq.top + 24; RRect(dc, &sq, 8, (COLORREF)*s->pi, P.panelDim);
+                RECT sq; sq.right = card.right - 16; sq.left = sq.right - 52; sq.top = (card.top + card.bottom) / 2 - 14; sq.bottom = sq.top + 28; RRect(dc, &sq, 12, (COLORREF)*s->pi, P.panelDim);
             } else {
                 const wchar_t *txt = L"";
                 if (s->type == ST_ENUM) txt = s->opts[*s->pi < s->nopt ? *s->pi : 0];
                 else if (s->type == ST_THEME) txt = S_theme; else if (s->type == ST_FONT) txt = S_font;
                 else if (s->ps) { const wchar_t *b = wcsrchr(s->ps, L'\\'); txt = s->ps[0] ? (b ? b + 1 : s->ps) : L"(none)"; }
-                q.left = w - ScaleI(200); Txt(dc, txt, &q, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS, P.acc);
+                q.left = w - ScaleI(210); Txt(dc, txt, &q, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS, P.acc);
             }
         }
         SelectClipRgn(dc, NULL); if (rg) DeleteObject(rg);
     }
-    (void)all;
+    (void)r;
 }
 
 /* ---- input ---- */
@@ -206,7 +225,7 @@ static void SetClick(int row, int x, int y) {
     case ST_STR: { wchar_t b[MAX_PATH]; wcsncpy(b, s->ps, MAX_PATH - 1); b[MAX_PATH - 1] = 0; if (MInput(s->label, b, MAX_PATH)) { wcscpy(s->ps, b); Changed(s, TRUE); } break; }
     case ST_FILE: {
         static const wchar_t *it[2] = { L"Choose file...", L"Clear" }; int c = MPopup(pt, it, 2, -1); wchar_t f[MAX_PATH];
-        if (c == 0 && MBrowse(g_set, f, s->act == 1 ? L"Cursors / images\0*.cur;*.ani;*.png;*.ico;*.bmp\0All files\0*.*\0" : L"Images\0*.png;*.jpg;*.jpeg;*.bmp;*.gif\0All files\0*.*\0")) { wcsncpy(s->ps, f, MAX_PATH - 1); Changed(s, TRUE); }
+        if (c == 0 && MBrowse(g_set, f, s->act == 1 ? L"Cursors / images\0*.cur;*.ani;*.png;*.ico;*.bmp\0All files\0*.*\0" : (s->act == 3 ? L"Icons / images\0*.png;*.ico;*.bmp;*.jpg;*.gif\0All files\0*.*\0" : L"Images\0*.png;*.jpg;*.jpeg;*.bmp;*.gif\0All files\0*.*\0"))) { wcsncpy(s->ps, f, MAX_PATH - 1); Changed(s, TRUE); }
         else if (c == 1) { s->ps[0] = 0; Changed(s, TRUE); }
         break; }
     case ST_ACT: DoAct(s->act); break;

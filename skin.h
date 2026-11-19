@@ -33,7 +33,7 @@ typedef struct Skin {
     BOOL pin, pinned, active, dragging, shaded;
     POINT dragStart; RECT dragRect;
     wchar_t title[256]; HICON icon, exeIcon;
-    DWORD iconTick, titleTick, pinTick; int lastW, lastH; HWND lastFg;
+    DWORD iconTick, titleTick, pinTick, fade0; int lastW, lastH; HWND lastFg;
 } Skin;
 static Skin *g_skins[MAXSKIN];
 static int g_nskins;
@@ -75,9 +75,13 @@ static void SkinMove(Skin *e, int x, int y, int w, int h) {
 }
 
 /* Z-order fix: keep the overlay directly above its window, whatever window was just raised. */
-static HWND VisPrev(HWND w) {          /* nearest visible window above w (invisible ones cannot be restacked against) */
+/* nearest visible window above w. For a normal (non-topmost) window, topmost windows (taskbar, previews, panels,
+   tooltips) are skipped: inserting its title bar after a topmost window would make the bar topmost and it would
+   then float in front of the focused window. */
+static HWND VisPrev(HWND w) {
+    BOOL tTop = (GetWindowLongW(w, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
     HWND p = GetWindow(w, GW_HWNDPREV);
-    while (p && (!IsWindowVisible(p) || p == g_tip)) p = GetWindow(p, GW_HWNDPREV);
+    while (p && (!IsWindowVisible(p) || p == g_tip || (!tTop && (GetWindowLongW(p, GWL_EXSTYLE) & WS_EX_TOPMOST)))) p = GetWindow(p, GW_HWNDPREV);
     return p;
 }
 static BOOL IsSkinWnd(HWND p, const Skin *except) {
@@ -284,6 +288,11 @@ static HWND g_noSkin[256]; static int g_nNoSkin;
 static BOOL IsNoSkin(HWND h) { int i; for (i = 0; i < g_nNoSkin; i++) if (g_noSkin[i] == h) return TRUE; return FALSE; }
 static void AddNoSkin(HWND h) { if (!IsNoSkin(h)) { if (g_nNoSkin >= 256) g_nNoSkin = 0; g_noSkin[g_nNoSkin++] = h; } }
 
+static void SkinAlpha(Skin *e) {
+    LONG ex = GetWindowLongW(e->over, GWL_EXSTYLE);
+    if (g_alpha < 255) { if (!(ex & WS_EX_LAYERED)) SetWindowLongW(e->over, GWL_EXSTYLE, ex | WS_EX_LAYERED); SetLayeredWindowAttributes(e->over, 0, (BYTE)g_alpha, LWA_ALPHA); }
+    else if (ex & WS_EX_LAYERED) SetWindowLongW(e->over, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
+}
 /* returns 0 ok, 1 no title bar, 2 limit, 3 already skinned, 4 create failed */
 static int SkinApply(HWND t) {
     Skin *e; LONG st; RECT r0, r1; int H = CurTheme()->height, x, y, w; BOOL wasMax = FALSE; DWORD pid = 0;
@@ -316,6 +325,8 @@ static int SkinApply(HWND t) {
         free(e); return 4;
     }
     g_skins[g_nskins++] = e;
+    SkinAlpha(e);
+    if (g_winAnimMs > 0) { LONG ex = GetWindowLongW(e->over, GWL_EXSTYLE); SetWindowLongW(e->over, GWL_EXSTYLE, ex | WS_EX_LAYERED); SetLayeredWindowAttributes(e->over, 0, 0, LWA_ALPHA); e->fade0 = GetTickCount(); }
     SkinRegion(e, w);
     ShowWindow(e->over, SW_SHOWNOACTIVATE);
     SkinZ(e);
@@ -348,6 +359,11 @@ static void SkinSync(Skin *e) {
         }
     }
     e->lastFg = fg;
+    if (e->fade0) {
+        DWORD el = now - e->fade0;
+        if (el >= (DWORD)g_winAnimMs || g_winAnimMs <= 0) { e->fade0 = 0; SkinAlpha(e); }
+        else SetLayeredWindowAttributes(e->over, 0, (BYTE)(g_alpha * el / g_winAnimMs), LWA_ALPHA);
+    }
     if (now - e->titleTick > 300) {
         wchar_t t[256]; e->titleTick = now; t[0] = 0; GetWindowTextW(e->target, t, 256);
         if (wcscmp(t, e->title) != 0) { wcscpy(e->title, t); InvalidateRect(e->over, NULL, FALSE); }

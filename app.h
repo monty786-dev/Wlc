@@ -38,5 +38,7 @@ static void ApplyTheme(int idx) {
     if (g_sysApply) ApplySystemLook(CurTheme());
     ApplyLookAll();
     WritePrivateProfileStringW(L"cfg", L"theme", g_themes[idx].name, g_ini);
+    wcsncpy(S_theme, g_themes[idx].name, 47); S_theme[47] = 0; MWrS(L"theme", S_theme);
+    ApplyAll();
     SetStatus(L"Theme: %ls%ls", g_themes[idx].name, g_sysApply ? L"  (system colours + fonts updated)" : L"");
 }

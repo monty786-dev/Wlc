@@ -54,8 +54,8 @@ static void CreateControls(void) {
     /* Options */
     for (i = 0; i < 8; i++) g_tog[i] = BTN(2, togs[i], IDC_O_AUTO + i);
     for (i = 0; i < 6; i++) g_btnO[i] = BTN(2, acts[i], IDC_O_RUN + i);
-    g_status = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX, 0, 0, 10, 10, g_main, (HMENU)(INT_PTR)IDC_STATUS, g_inst, NULL);
-    SendMessageW(g_status, WM_SETFONT, (WPARAM)g_fSmall, TRUE);
+    g_wlStatus = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX, 0, 0, 10, 10, g_main, (HMENU)(INT_PTR)IDC_STATUS, g_inst, NULL);
+    SendMessageW(g_wlStatus, WM_SETFONT, (WPARAM)g_fSmall, TRUE);
     SendMessageW(g_edLab, EM_SETLIMITTEXT, 40, 0);
     for (i = 0; i < NPROPS; i++) SendMessageW(g_props, LB_ADDSTRING, 0, (LPARAM)i);
 }
@@ -86,7 +86,7 @@ static void Layout(void) {
     for (i = 0; i < 8; i++) MoveWindow(g_tog[i], m + (i % 2) * (cw + g), top + (i / 2) * (bh + g), cw, bh, TRUE);
     y2 = top + 4 * (bh + g) + 8;
     for (i = 0; i < 6; i++) MoveWindow(g_btnO[i], m + (i % 2) * (cw + g), y2 + (i / 2) * (bh + g), cw, bh, TRUE);
-    MoveWindow(g_status, m, yStat, W - 2 * m, 20, TRUE);
+    MoveWindow(g_wlStatus, m, yStat, W - 2 * m, 20, TRUE);
 }
 
 /* ---- Theme Lab actions ---- */
@@ -180,7 +180,6 @@ static LRESULT CALLBACK MainProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
     case WM_CREATE:
         g_main = h; CreateControls(); Layout(); FillGallery(); UpdateButtonTexts(); LabLoadFrom(g_themeIdx);
-        SetTimer(h, TM_SYNC, 15, NULL); SetTimer(h, TM_SCAN, 200, NULL);
         SetStatus(L"Auto-skin is %ls. Pick a look on the Themes tab.", g_auto ? L"ON" : L"OFF");
         return 0;
     case WM_GETMINMAXINFO: { MINMAXINFO *mi = (MINMAXINFO *)l; mi->ptMinTrackSize.x = 360; mi->ptMinTrackSize.y = 520; return 0; }
@@ -201,16 +200,13 @@ static LRESULT CALLBACK MainProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (d->CtlID == IDC_GAL) DrawGalleryItem(d); else if (d->CtlID == IDC_PROPS) DrawPropItem(d);
         return TRUE; }
     case WM_CTLCOLOREDIT: case WM_CTLCOLORLISTBOX: {
-        static HBRUSH br; static COLORREF last = (COLORREF)-1; COLORREF c = g_dark ? RGB(45,45,48) : W_;
+        static HBRUSH br; static COLORREF last = (COLORREF)-1; COLORREF c = Blend(P.panel, P.panelTxt, 10);
         if (c != last) { if (br) DeleteObject(br); br = CreateSolidBrush(c); last = c; }
         SetTextColor((HDC)w, UiText()); SetBkColor((HDC)w, c); return (LRESULT)br; }
     case WM_CTLCOLORSTATIC: {
         static HBRUSH br; static COLORREF last = (COLORREF)-1; COLORREF c = UiBg();
         if (c != last) { if (br) DeleteObject(br); br = CreateSolidBrush(c); last = c; }
         SetTextColor((HDC)w, UiSub()); SetBkColor((HDC)w, c); return (LRESULT)br; }
-    case WM_TIMER:
-        if (w == TM_SYNC) SyncAll(); else if (w == TM_SCAN) { if (g_auto) AutoScan(); }
-        return 0;
     case WM_COMMAND: {
         int id = LOWORD(w), code = HIWORD(w);
         if (id >= IDC_TAB0 && id <= IDC_TAB2) { ShowTab(id - IDC_TAB0); return 0; }
@@ -257,11 +253,7 @@ static LRESULT CALLBACK MainProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0; }
     case WM_SHOWAPP: ShowWindow(h, SW_SHOWNORMAL); SetForegroundWindow(h); return 0;
-    case WM_QUITAPP: SaveConfig(); KillTimer(h, TM_SYNC); SkinRemoveAll(); DestroyWindow(h); return 0;
-    case WM_CLOSE:
-        if (g_bg) { SaveConfig(); ShowWindow(h, SW_HIDE); return 0; }
-        SaveConfig(); KillTimer(h, TM_SYNC); SkinRemoveAll(); DestroyWindow(h); return 0;
-    case WM_DESTROY: PostQuitMessage(0); return 0;
+    case WM_CLOSE: SaveConfig(); ShowWindow(h, SW_HIDE); return 0;      /* the shell keeps running */
     }
     return DefWindowProcW(h, m, w, l);
 }

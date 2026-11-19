@@ -1,12 +1,12 @@
 /* ui1.h - UI palette, owner-drawn controls, Theme Lab property editor */
 static const COLORREF PALETTE[8] = { RGB(0,120,215), RGB(232,17,35), RGB(16,137,62), RGB(255,140,0),
                                      RGB(136,23,152), RGB(0,153,188), RGB(60,60,60), RGB(233,30,99) };
-static COLORREF UiBg(void)     { return g_dark ? RGB(30,30,30) : RGB(243,243,243); }
-static COLORREF UiPanel(void)  { return g_dark ? RGB(48,48,52) : RGB(255,255,255); }
-static COLORREF UiFace(void)   { return g_dark ? RGB(62,62,68) : RGB(226,226,230); }
-static COLORREF UiText(void)   { return g_dark ? RGB(236,236,236) : RGB(28,28,28); }
-static COLORREF UiSub(void)    { return g_dark ? RGB(150,150,155) : RGB(100,100,105); }
-static COLORREF UiAccent(void) { return g_hasCol ? g_col : g_eff.sHilite; }
+static COLORREF UiBg(void)     { return P.panel; }
+static COLORREF UiPanel(void)  { return Blend(P.panel, P.panelTxt, 7); }
+static COLORREF UiFace(void)   { return Blend(P.panel, P.panelTxt, 16); }
+static COLORREF UiText(void)   { return P.panelTxt; }
+static COLORREF UiSub(void)    { return P.panelDim; }
+static COLORREF UiAccent(void) { return P.acc; }
 
 static int *TogPtr(int id) {
     switch (id) { case IDC_O_AUTO: return &g_auto; case IDC_O_SYS: return &g_sysApply; case IDC_O_BG: return &g_bg;

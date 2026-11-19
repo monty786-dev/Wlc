@@ -3,7 +3,7 @@ static HWND g_tb, g_pv, g_rv, g_fl, g_st, g_dk, g_set, g_msg;
 static HFONT g_fTb, g_fTbB;
 static int g_stOpen;
 
-enum { IT_START, IT_PIN, IT_RUN, IT_DIV, IT_TRAY, IT_CLOCK, IT_DESK };
+enum { IT_START, IT_PIN, IT_RUN, IT_DIV, IT_TRAY, IT_CLOCK, IT_DESK, IT_VIEW };
 typedef struct { HWND h; wchar_t title[96]; HICON ic; wchar_t exe[40]; COLORREF und; BOOL active; DWORD icTick; } RunItem;
 typedef struct { int type, idx, pos, len; } Item;
 static RunItem g_run[64]; static int g_nrun;
@@ -48,6 +48,10 @@ static HICON MWinIcon(HWND t) {
     if (SendMessageTimeoutW(t, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 40, &r) && r) return (HICON)r;
     r = GetClassLongPtrW(t, GCLP_HICON); if (r) return (HICON)r;
     r = GetClassLongPtrW(t, GCLP_HICONSM); if (r) return (HICON)r;
+    {   DWORD pid = 0; HANDLE ph; wchar_t full[MAX_PATH]; DWORD sz = MAX_PATH;           /* fall back to the program's own icon */
+        GetWindowThreadProcessId(t, &pid); ph = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+        if (ph) { BOOL ok = QueryFullProcessImageNameW(ph, 0, full, &sz); CloseHandle(ph); if (ok) return PathIcon(full); }
+    }
     return LoadIconW(NULL, IDI_APPLICATION);
 }
 /* average colour of an icon: underline can adapt to the app */
@@ -125,10 +129,10 @@ static void TbLayout(void) {
     int horiz = g.tbPos < 2, lenMax = (horiz ? sw : sh) - 2 * det;
     int startLen = (horiz && P.startText[0]) ? thick + ScaleI(40) : thick, pinLen = icon + ScaleI(16);
     int divLen = (nPin > 0 && n > 0) ? ScaleI(10) + g.tbDivider : 0;
-    int trayLen = (g.tbTray && nTray) ? nTray * ScaleI(22) + ScaleI(8) : 0;
+    int trayLen = (g.tbTray && nTray) ? (g.trayGrid ? ScaleI(30) : nTray * ScaleI(22) + ScaleI(8)) : 0, viewLen = g.tvOn ? ScaleI(30) : 0;
     int clockLen = g.tbClock ? (horiz ? ScaleI(g.tbDay ? 100 : 80) : ScaleI(46)) : 0, deskLen = g.tbDesk ? ScaleI(14) : 0;
-    int sysLen = trayLen + clockLen + deskLen, fixed = startLen + nPin * pinLen + divLen, want, w = 0, clusterLen, lenBar, pc, ps;
-    int order[3], k, cnt = 0;
+    int sysLen = trayLen + clockLen + viewLen + deskLen, fixed = startLen + nPin * pinLen + divLen, want, w = 0, clusterLen, lenBar, pc, ps;
+    int order[4], k, cnt = 0;
     g_tbHoriz = horiz; g_tbThick = thick;
     want = (g.tbTitles && horiz) ? ScaleI(150) : pinLen;
     if (n > 0) { w = (lenMax - 2 * pad - sysLen - fixed - pad) / n; w = MinI(w, want); w = MaxI(w, icon + ScaleI(10)); }
@@ -150,10 +154,11 @@ static void TbLayout(void) {
     }
     if (trayLen) order[cnt++] = IT_TRAY;
     if (clockLen) order[cnt++] = IT_CLOCK;
+    if (viewLen) order[cnt++] = IT_VIEW;
     if (deskLen) order[cnt++] = IT_DESK;
     {   int x = ps;
         for (k = 0; k < cnt; k++) {
-            int t = order[g.tbAlign == 2 ? cnt - 1 - k : k], len = (t == IT_TRAY) ? trayLen : (t == IT_CLOCK ? clockLen : deskLen);
+            int t = order[g.tbAlign == 2 ? cnt - 1 - k : k], len = (t == IT_TRAY) ? trayLen : (t == IT_CLOCK ? clockLen : (t == IT_VIEW ? viewLen : deskLen));
             g_it[g_nit].type = t; g_it[g_nit].idx = 0; g_it[g_nit].pos = x; g_it[g_nit].len = len; g_nit++; x += len;
         }
     }
@@ -201,7 +206,7 @@ static void TbPaint(HDC dc, int w, int h) {
             COLORREF ic = g.stUseCol ? (COLORREF)g.stCol : (P.style == 2 ? K_ : P.txt);
             BtnBg(dc, &r, hot, g_stOpen, dn);
             q = r; if (P.startText[0] && g_tbHoriz) q.right = q.left + (r.bottom - r.top);
-            DrawStartIcon(dc, &q, g.stIcon, ic, P.barA);
+            DrawStartBtn(dc, &q, ic, P.barA);
             if (P.startText[0] && g_tbHoriz) { RECT t2 = r; t2.left = q.right - 2; SelectObject(dc, g_fTbB); Txt(dc, P.startText, &t2, DT_SINGLELINE | DT_VCENTER, P.style == 2 ? K_ : P.txt); SelectObject(dc, g_fTb); }
             break; }
         case IT_PIN: BtnBg(dc, &r, hot, FALSE, dn); DrawIc(dc, PathIcon(g_L[L_TB][it->idx].p), (r.left + r.right) / 2, (r.top + r.bottom) / 2, icon); break;
@@ -222,7 +227,8 @@ static void TbPaint(HDC dc, int w, int h) {
             if (g_tbHoriz) FillRectC(dc, (r.left + r.right) / 2 - th / 2, r.top + ScaleI(6), (r.left + r.right) / 2 - th / 2 + th, r.bottom - ScaleI(6), c);
             else FillRectC(dc, r.left + ScaleI(6), (r.top + r.bottom) / 2 - th / 2, r.right - ScaleI(6), (r.top + r.bottom) / 2 - th / 2 + th, c);
             break; }
-        case IT_TRAY: {
+        case IT_VIEW: BtnBg(dc, &r, hot, FALSE, dn); DrawUiIcon(dc, UI_SYSTEM, &r, P.txt); break;
+        case IT_TRAY: if (g.trayGrid) { BtnBg(dc, &r, hot, FALSE, dn); DrawUiIcon(dc, UI_PROGRAMS, &r, P.txt); break; } {
             int k, sz = ScaleI(16), cx0 = (g_tbHoriz ? r.left + ScaleI(4) : (r.left + r.right) / 2 - sz / 2);
             for (k = 0; k < g_nL[L_TRAY]; k++) {
                 int x = g_tbHoriz ? cx0 + k * ScaleI(22) + ScaleI(11) : cx0 + sz / 2, y = g_tbHoriz ? (r.top + r.bottom) / 2 : r.top + ScaleI(4) + k * ScaleI(22) + ScaleI(11);

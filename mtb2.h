@@ -5,7 +5,11 @@ static void OpenSettings(void);
 static void ApplyAll(void);
 static void DesktopToggle(void);
 static void QuitShell(void);
-enum { MT_RUN = 11, MT_CLOCK, MT_LOGIC, MT_KBD, MT_HIDEW, MT_ANIM, MT_PV, MT_PVREF };
+static void TvToggle(void);
+static void TgToggle(void);
+enum { MT_RUN = 11, MT_CLOCK, MT_LOGIC, MT_KBD, MT_HIDEW, MT_ANIM, MT_PV, MT_PVREF, MT_SYNC, MT_SCAN };
+static int AnimMs(int base) { return g.animOn ? base * 100 / g.animSpeed : 0; }      /* 0 = animations off */
+static HWND TbZ(void) { return g.tbZ == 0 ? HWND_TOPMOST : (g.tbZ == 1 ? HWND_NOTOPMOST : HWND_BOTTOM); }   /* taskbar layer */
 
 static int  g_tbShown = 1, g_tbAnimOn, g_tbAnimIn, g_revealed, g_fsActive, g_wantHide;
 static DWORD g_tbAnimT0, g_revUntil;
@@ -45,38 +49,42 @@ static void UpdateWorkArea(void) {
     g_waKey = key; SystemParametersInfoW(SPI_SETWORKAREA, 0, &wa, SPIF_SENDCHANGE);
 }
 static void RestoreWorkArea(void) { if (g_waSaved) SystemParametersInfoW(SPI_SETWORKAREA, 0, &g_wa0, SPIF_SENDCHANGE); }
-static void WineHide(void) {
-    HWND w; if (!g.hideWine) return;
-    w = FindWindowW(L"Shell_TrayWnd", NULL); if (w) ShowWindow(w, SW_HIDE);
+static BOOL CALLBACK WineTbEnum(HWND h, LPARAM lp) {
+    wchar_t cls[64], t[64]; DWORD pid = 0; int hide = (int)lp; cls[0] = t[0] = 0;
+    GetWindowThreadProcessId(h, &pid); if (pid == GetCurrentProcessId()) return TRUE;
+    GetClassNameW(h, cls, 64); GetWindowTextW(h, t, 64);
+    if (!wcscmp(cls, L"Shell_TrayWnd") || !wcscmp(cls, L"Shell_SecondaryTrayWnd") || !wcscmp(cls, L"WineTaskbar") || !wcscmp(cls, L"ExplorerTray") ||
+        !_wcsicmp(t, L"Wine Taskbar") || !_wcsicmp(t, L"Taskbar")) {
+        if (hide) { if (IsWindowVisible(h)) ShowWindow(h, SW_HIDE); } else if (!IsWindowVisible(h)) ShowWindow(h, SW_SHOWNOACTIVATE);
+    }
+    return TRUE;
 }
+static void WineHide(void) { if (g.hideWine) EnumWindows(WineTbEnum, 1); }
+static void WineShow(void) { EnumWindows(WineTbEnum, 0); }
 
 /* ---- hover preview ---- */
 static HBITMAP g_pvBmp; static HWND g_pvTarget; static int g_pvItem = -1;
-static void PvCapture(HWND t) {
-    RECT r; int w, h, tw = g.pvW, th = g.pvH, fw, fh; HDC sdc, mdc, tdc; HBITMAP big, nb, ob1, ob2; BOOL ok = FALSE;
-    if (!GetWindowRect(t, &r)) return;
-    w = r.right - r.left; h = r.bottom - r.top; if (w < 1 || h < 1) return; if (w > 1920) w = 1920; if (h > 1080) h = 1080;
+static HBITMAP CapThumb(HWND t, int tw, int th) {
+    RECT r; int w, h, fw, fh; HDC sdc, mdc, tdc; HBITMAP big, nb, ob1, ob2, res = NULL; BOOL ok = FALSE;
+    if (!GetWindowRect(t, &r)) return NULL;
+    w = r.right - r.left; h = r.bottom - r.top; if (w < 1 || h < 1 || tw < 8 || th < 8) return NULL; if (w > 1920) w = 1920; if (h > 1080) h = 1080;
     sdc = GetDC(NULL); mdc = CreateCompatibleDC(sdc); tdc = CreateCompatibleDC(sdc);
     big = CreateCompatibleBitmap(sdc, w, h); nb = CreateCompatibleBitmap(sdc, tw, th);
     if (mdc && tdc && big && nb) {
         ob1 = (HBITMAP)SelectObject(mdc, big); ob2 = (HBITMAP)SelectObject(tdc, nb);
-        FillRectC(tdc, 0, 0, tw, th, Blend(P.panel, K_, 20));
-        FillRectC(mdc, 0, 0, w, h, K_);
+        FillRectC(tdc, 0, 0, tw, th, Blend(P.panel, K_, 20)); FillRectC(mdc, 0, 0, w, h, K_);
         ok = PrintWindow(t, mdc, 0);
         if (ok) {
             fw = tw; fh = fw * h / w; if (fh > th) { fh = th; fw = fh * w / h; }
             SetStretchBltMode(tdc, HALFTONE); SetBrushOrgEx(tdc, 0, 0, NULL);
             StretchBlt(tdc, (tw - fw) / 2, (th - fh) / 2, fw, fh, mdc, 0, 0, w, h, SRCCOPY);
-        } else { HICON ic = MWinIcon(t); DrawIconEx(tdc, tw / 2 - 16, th / 2 - 16, ic, 32, 32, 0, NULL, DI_NORMAL); }
-        SelectObject(mdc, ob1); SelectObject(tdc, ob2);
-        if (g_pvBmp) DeleteObject(g_pvBmp); g_pvBmp = nb; nb = NULL;
+        } else DrawIconEx(tdc, tw / 2 - 16, th / 2 - 16, MWinIcon(t), 32, 32, 0, NULL, DI_NORMAL);
+        SelectObject(mdc, ob1); SelectObject(tdc, ob2); res = nb; nb = NULL;
     }
-    if (nb) DeleteObject(nb);
-    if (big) DeleteObject(big);
-    if (mdc) DeleteDC(mdc);
-    if (tdc) DeleteDC(tdc);
-    ReleaseDC(NULL, sdc);
+    if (nb) DeleteObject(nb); if (big) DeleteObject(big); if (mdc) DeleteDC(mdc); if (tdc) DeleteDC(tdc); ReleaseDC(NULL, sdc);
+    return res;
 }
+static void PvCapture(HWND t) { HBITMAP b = CapThumb(t, g.pvW, g.pvH); if (b) { if (g_pvBmp) DeleteObject(g_pvBmp); g_pvBmp = b; } }
 static void PvHide(void) { if (g_pv) ShowWindow(g_pv, SW_HIDE); g_pvItem = -1; g_pvTarget = NULL; }
 static void PvShow(int item) {
     RECT ir, sr; int W = g.pvW + 12, H = g.pvH + 34, x, y, sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN);
@@ -117,18 +125,26 @@ static LRESULT CALLBACK PvProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 /* ---- reveal bar + floating icon ---- */
 static RECT g_rvRect;
 static void RvPlace(void) {
-    int sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN), w = g.rvW > sw ? sw : g.rvW, h = g.rvH + (g.rvL ? 14 : 0), x, y;
-    HRGN rg, a, b;
+    int sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN), horiz = g.rvPos < 2, th = g.rvH, len = g.rvW, arm = g.rvArm, W, H, x, y, cx, cy;
+    HRGN rg = NULL, a, b;
     if (!g_rv) return;
-    x = g.rvAlign == 0 ? 0 : (g.rvAlign == 1 ? (sw - w) / 2 : sw - w); y = g.rvPos == 0 ? sh - h : 0;
-    SetRect(&g_rvRect, x, y, x + w, y + h);
-    SetWindowPos(g_rv, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
-    if (g.rvL) {
-        int by = g.rvPos == 0 ? h - g.rvH : 0;
-        rg = CreateRectRgn(0, by, w, by + g.rvH); a = CreateRectRgn(0, 0, g.rvH, h); b = CreateRectRgn(w - g.rvH, 0, w, h);
-        if (rg && a && b) { CombineRgn(rg, rg, a, RGN_OR); CombineRgn(rg, rg, b, RGN_OR); if (!SetWindowRgn(g_rv, rg, TRUE)) DeleteObject(rg); }
-        if (a) DeleteObject(a); if (b) DeleteObject(b);
-    } else SetWindowRgn(g_rv, NULL, TRUE);
+    if (horiz) { cy = (g.rvPos == 0); cx = (g.rvAlign == 2); } else { cx = (g.rvPos == 3); cy = (g.rvAlign == 2); }
+    if (g.rvL) {            /* L at the screen corner: one arm along the width, one along the height */
+        int hl = horiz ? len : arm, vl = horiz ? arm : len, x0, y0, x1, y1;
+        if (hl > sw) hl = sw; if (vl > sh) vl = sh;
+        W = hl > th ? hl : th; H = vl > th ? vl : th; x = cx ? sw - W : 0; y = cy ? sh - H : 0;
+        x0 = cx ? W - hl : 0; y0 = cy ? H - th : 0; x1 = cx ? W - th : 0; y1 = cy ? H - vl : 0;
+        rg = CreateRectRgn(x0, y0, x0 + hl, y0 + th); a = CreateRectRgn(x1, y1, x1 + th, y1 + vl);
+        if (rg && a) CombineRgn(rg, rg, a, RGN_OR); if (a) DeleteObject(a);
+    } else if (horiz) {
+        W = len > sw ? sw : len; H = th; x = g.rvAlign == 0 ? 0 : (g.rvAlign == 1 ? (sw - W) / 2 : sw - W); y = cy ? sh - H : 0;
+    } else {
+        W = th; H = len > sh ? sh : len; x = cx ? sw - W : 0; y = g.rvAlign == 0 ? 0 : (g.rvAlign == 1 ? (sh - H) / 2 : sh - H);
+    }
+    (void)b;
+    SetRect(&g_rvRect, x, y, x + W, y + H);
+    SetWindowPos(g_rv, HWND_TOPMOST, x, y, W, H, SWP_NOACTIVATE);
+    if (rg) { if (!SetWindowRgn(g_rv, rg, TRUE)) DeleteObject(rg); } else SetWindowRgn(g_rv, NULL, TRUE);
     SetLayeredWindowAttributes(g_rv, 0, (BYTE)(g.rvOpacity * 255 / 100), LWA_ALPHA);
     InvalidateRect(g_rv, NULL, FALSE);
 }
@@ -142,7 +158,7 @@ static void Reveal(void);
 static LRESULT CALLBACK FlProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     if (m == WM_PAINT) {
         PAINTSTRUCT ps; RECT rc; HDC dc = BeginPaint(h, &ps); GetClientRect(h, &rc);
-        FillRectC(dc, 0, 0, rc.right, rc.bottom, P.acc); DrawStartIcon(dc, &rc, g.stIcon, P.accTxt, P.acc); EndPaint(h, &ps); return 0;
+        FillRectC(dc, 0, 0, rc.right, rc.bottom, P.acc); DrawStartBtn(dc, &rc, P.accTxt, P.acc); EndPaint(h, &ps); return 0;
     }
     if (m == WM_LBUTTONUP) { Reveal(); return 0; }
     if (m == WM_ERASEBKGND) return 1;
@@ -167,24 +183,35 @@ static void FlShow(int on) {
 }
 
 /* ---- show / hide animation: 0 blink, 1 pop (fade), 2 slide from edge, 3 slide from left ---- */
-#define ANIM_MS 200
-static void TbPutRect(const RECT *r) { SetWindowPos(g_tb, HWND_TOPMOST, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOACTIVATE); }
+static void TbPutRect(const RECT *r) { SetWindowPos(g_tb, TbZ(), r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOACTIVATE); }
 static void TbSetAlpha(int a) { SetLayeredWindowAttributes(g_tb, 0, (BYTE)a, LWA_ALPHA); }
 static void TbSetShown(int show) {
     if (!g_tb || show == g_tbShown) return;
-    g_tbShown = show; g_tbAnimIn = show; g_tbAnimOn = 1; g_tbAnimT0 = GetTickCount();
+    g_tbShown = show;
+    if (AnimMs(200) <= 0) {                                   /* animations off: switch instantly */
+        g_tbAnimOn = 0; KillTimer(g_msg, MT_ANIM); TbSetAlpha(g.tbOpacity * 255 / 100);
+        if (show) { TbPutRect(&g_tbRect); ShowWindow(g_tb, SW_SHOWNOACTIVATE); } else ShowWindow(g_tb, SW_HIDE);
+        UpdateWorkArea(); return;
+    }
+    g_tbAnimIn = show; g_tbAnimOn = 1; g_tbAnimT0 = GetTickCount();
     if (show) { TbPutRect(&g_tbRect); ShowWindow(g_tb, SW_SHOWNOACTIVATE); }
     SetTimer(g_msg, MT_ANIM, 16, NULL);
     UpdateWorkArea();
 }
 static void TbAnimStep(void) {
-    DWORD el = GetTickCount() - g_tbAnimT0; int base = g.tbOpacity * 255 / 100, sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN);
-    int t = el >= ANIM_MS ? 100 : (int)(el * 100 / ANIM_MS), p = g_tbAnimIn ? t : 100 - t; RECT r = g_tbRect; int mode = g.rvAnim;
-    if (mode == 0) { int ph = (int)(el / 40) % 2; TbSetAlpha(g_tbAnimIn ? (ph ? base : base / 5) : (ph ? base / 5 : base)); if (t >= 100) TbSetAlpha(g_tbAnimIn ? base : 0); }
+    int dur = AnimMs(200), base = g.tbOpacity * 255 / 100, sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN), t, p, mode = g.rvAnim, off, th;
+    DWORD el = GetTickCount() - g_tbAnimT0; RECT r = g_tbRect;
+    if (dur < 1) dur = 1;
+    t = el >= (DWORD)dur ? 100 : (int)(el * 100 / dur); p = g_tbAnimIn ? t : 100 - t; off = 100 - p; th = g_tbThick;
+    if (mode == 0) { int ph = (int)(el / 45) % 2; TbSetAlpha(g_tbAnimIn ? (ph ? base : base / 5) : (ph ? base / 5 : base)); }
     else if (mode == 1) TbSetAlpha(base * p / 100);
     else {
-        int off = (100 - p);
         if (mode == 3) OffsetRect(&r, -(r.right) * off / 100, 0);
+        else if (mode == 4) OffsetRect(&r, (sw - r.left) * off / 100, 0);
+        else if (mode == 5) {                                  /* grow out of the screen edge */
+            int cur = th * p / 100; if (cur < 1) cur = 1;
+            if (g.tbPos == 0) r.top = r.bottom - cur; else if (g.tbPos == 1) r.bottom = r.top + cur; else if (g.tbPos == 2) r.right = r.left + cur; else r.left = r.right - cur;
+        }
         else if (g.tbPos == 0) OffsetRect(&r, 0, (sh - r.top) * off / 100);
         else if (g.tbPos == 1) OffsetRect(&r, 0, -(r.bottom) * off / 100);
         else if (g.tbPos == 2) OffsetRect(&r, -(r.right) * off / 100, 0);
@@ -226,7 +253,7 @@ static void TbLogic(void) {
     if (!g_revealed) {
         if (g_tbShown && !g_tbAnimOn) TbSetShown(0);
         RvShow(g.rvOn); FlShow(g_fsActive && g.fsMode == 2);
-        if (g.rvOn) { RECT q = g_rvRect; InflateRect(&q, 2, 2); inRv = PtInRect(&q, pt); }
+        if (g.rvOn) { RECT q = g_rvRect; InflateRect(&q, 2, 2); inRv = PtInRect(&q, pt); if (inRv && g.rvL) inRv = (WindowFromPoint(pt) == g_rv); }
         if (inRv) Reveal();
     } else {
         tr = g_tbRect; InflateRect(&tr, 6, 6); inTb = PtInRect(&tr, pt);
@@ -287,7 +314,8 @@ static void TbClick(int it, int sub) {
     case IT_PIN: LaunchPath(g_L[L_TB][t->idx].p); break;
     case IT_RUN: PvHide(); ActivateRun(g_run[t->idx].h); break;
     case IT_DESK: ShowDesktopToggle(); break;
-    case IT_TRAY: if (sub >= 0 && sub < g_nL[L_TRAY]) LaunchPath(g_L[L_TRAY][sub].p); break;
+    case IT_VIEW: TvToggle(); break;
+    case IT_TRAY: if (g.trayGrid) TgToggle(); else if (sub >= 0 && sub < g_nL[L_TRAY]) LaunchPath(g_L[L_TRAY][sub].p); break;
     }
     g_tbDown = -1;
 }
@@ -314,7 +342,7 @@ static LRESULT CALLBACK TbProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0; }
     case WM_MOUSELEAVE: g_tbHot = -1; InvalidateRect(h, NULL, FALSE); KillTimer(g_msg, MT_PV); SetTimer(g_msg, MT_PVREF, 250, NULL); return 0;
-    case WM_LBUTTONDOWN: g_tbDown = g_tbHot; InvalidateRect(h, NULL, FALSE); return 0;
+    case WM_LBUTTONDOWN: g_tbDown = g_tbHot; if (g.tbZ == 1) SetWindowPos(h, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); InvalidateRect(h, NULL, FALSE); return 0;
     case WM_LBUTTONUP: { int sub, i = TbHit((short)LOWORD(l), (short)HIWORD(l), &sub); if (i >= 0 && i == g_tbDown) TbClick(i, sub); g_tbDown = -1; InvalidateRect(h, NULL, FALSE); return 0; }
     case WM_RBUTTONUP: { int sub, i = TbHit((short)LOWORD(l), (short)HIWORD(l), &sub); TbContext(i, sub); return 0; }
     }

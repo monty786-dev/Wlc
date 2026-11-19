@@ -6,8 +6,8 @@
  X(tbUnder,1,0,1) X(tbUnderH,3,1,8) X(tbUnderAdapt,1,0,1) X(tbDivider,1,0,3) X(tbDay,0,0,1) X(tbClock,1,0,1) \
  X(tbDesk,1,0,1) X(tbTray,1,0,1) X(tbPreview,1,0,1) X(pvW,220,120,480) X(pvH,150,80,360) X(tbClassic,0,0,1) \
  X(hideWine,1,0,1) X(fsMode,1,0,3) X(fsApplies,2,0,2) X(autoStart,1,0,1) X(startDelay,0,0,60) \
- X(rvOn,1,0,1) X(rvAlways,0,0,1) X(rvCol,0xE0A030,0,0xFFFFFF) X(rvPos,0,0,1) X(rvAlign,1,0,2) X(rvL,0,0,1) \
- X(rvOpacity,70,10,100) X(rvH,4,2,24) X(rvW,160,20,1600) X(rvSecs,4,1,30) X(rvAnim,1,0,3) \
+ X(rvOn,1,0,1) X(rvAlways,0,0,1) X(rvCol,0xE0A030,0,0xFFFFFF) X(rvPos,0,0,3) X(rvAlign,1,0,2) X(rvL,0,0,1) \
+ X(rvOpacity,70,10,100) X(rvH,4,2,24) X(rvW,160,20,1600) X(rvSecs,4,1,30) X(rvAnim,1,0,5) \
  X(stSize,0,0,3) X(stIcon,0,0,17) X(stUseCol,0,0,1) X(stCol,0xE0A030,0,0xFFFFFF) X(stBarMode,0,0,2) X(stBarCol,0x2A2A2A,0,0xFFFFFF) \
  X(stBgMode,0,0,2) X(stBgCol,0x302820,0,0xFFFFFF) X(stOpacity,95,30,100) X(stTileCol,1,0,1) X(stTileAlpha,90,30,100) \
  X(stTileAnim,1,0,1) X(stTilePx,72,40,160) X(showApps,1,0,1) X(showTiles,1,0,1) \
@@ -18,7 +18,9 @@
  X(pShadow,1,0,1) X(pRound,0,0,1) X(effTb,1,0,1) X(effSt,1,0,1) X(effPv,1,0,1) X(effWin,1,0,1) X(effInst,1,0,1) \
  X(pIcon,0,0,14) X(pMode,0,0,6) X(pTint,1,0,1) X(pFill,1,0,1) X(fontSize,12,8,24) X(uiScale,100,70,170) \
  X(dkOn,0,0,1) X(dkGrid,84,56,160) X(dkSnap,1,0,1) X(dkCorner,0,0,3) X(dkIcons,1,0,1) X(dkClock,1,0,1) X(dkApps,0,0,1) \
- X(dkWallMode,0,0,4) X(dkLock,0,0,1) X(dkBgCol,0x504030,0,0xFFFFFF)
+ X(dkWallMode,0,0,4) X(dkLock,0,0,1) X(dkBgCol,0x504030,0,0xFFFFFF) \
+ X(tbZ,0,0,2) X(trayGrid,0,0,1) X(openSet,1,0,1) X(animOn,1,0,1) X(animSpeed,100,40,300) X(stAnim,1,0,5) X(tvOn,1,0,1) \
+ X(stBarPos,0,0,3) X(stFirst,0,0,1) X(stSplit,0,0,2) X(rvArm,140,20,1600) X(winFade,1,0,1)
 
 typedef struct {
 #define X(n,d,lo,hi) int n;
@@ -27,7 +29,7 @@ typedef struct {
 } Cfg;
 static Cfg g;
 static wchar_t g_mini[MAX_PATH];
-static wchar_t S_stbg[MAX_PATH];
+static wchar_t S_stbg[MAX_PATH], S_icon[12][MAX_PATH];
 static wchar_t S_theme[48] = L"Windows 10", S_user[48] = L"User", S_pic[MAX_PATH], S_font[32] = L"Segoe UI", S_wall[MAX_PATH],
                S_kbCmd[MAX_PATH], S_cur[8][MAX_PATH];
 
@@ -108,6 +110,7 @@ static void LoadCfg(void) {
     GetPrivateProfileStringW(L"str", L"wall", L"", S_wall, MAX_PATH, g_mini);
     GetPrivateProfileStringW(L"str", L"kbcmd", L"", S_kbCmd, MAX_PATH, g_mini);
     GetPrivateProfileStringW(L"str", L"stbg", L"", S_stbg, MAX_PATH, g_mini);
+    for (i = 0; i < 12; i++) { _snwprintf(k, 7, L"ico%d", i); k[7] = 0; GetPrivateProfileStringW(L"str", k, L"", S_icon[i], MAX_PATH, g_mini); }
     for (i = 0; i < 8; i++) { _snwprintf(k, 7, L"cur%d", i); k[7] = 0; GetPrivateProfileStringW(L"str", k, L"", S_cur[i], MAX_PATH, g_mini); }
     LoadLists();
 }
@@ -117,6 +120,7 @@ static void SaveCfg(void) {
     CFG_INTS(X)
 #undef X
     MWrS(L"theme", S_theme); MWrS(L"user", S_user); MWrS(L"pic", S_pic); MWrS(L"font", S_font); MWrS(L"wall", S_wall); MWrS(L"kbcmd", S_kbCmd); MWrS(L"stbg", S_stbg);
+    for (i = 0; i < 12; i++) { _snwprintf(k, 7, L"ico%d", i); k[7] = 0; MWrS(k, S_icon[i]); }
     for (i = 0; i < 8; i++) { _snwprintf(k, 7, L"cur%d", i); k[7] = 0; MWrS(k, S_cur[i]); }
     for (i = 0; i < L_COUNT; i++) SaveList(i);
 }
@@ -124,16 +128,51 @@ static BOOL CfgBackup(void) { wchar_t b[MAX_PATH]; SaveCfg(); wcscpy(b, g_mini);
 static BOOL CfgRestore(void) { wchar_t b[MAX_PATH]; wcscpy(b, g_mini); wcscat(b, L".bak"); if (!CopyFileW(b, g_mini, FALSE)) return FALSE; LoadCfg(); return TRUE; }
 static void CfgReset(void) { DeleteFileW(g_mini); LoadCfg(); }
 
-/* ---- icons of files / shortcuts (cached) ---- */
+/* ---- icons of files / shortcuts (cached). .lnk files are parsed (target + icon location) without COM ---- */
 typedef struct { wchar_t p[MAX_PATH]; HICON ic; } IcEnt;
-static IcEnt g_ic[200]; static int g_nic;
+static IcEnt g_ic[240]; static int g_nic;
+static BOOL LnkResolve(const wchar_t *lnk, wchar_t *target, wchar_t *icon, int *idx) {
+    HANDLE f = CreateFileW(lnk, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL); BYTE *b; DWORD sz, rd = 0, flags, off; BOOL ok = FALSE;
+    target[0] = icon[0] = 0; *idx = 0;
+    if (f == INVALID_HANDLE_VALUE) return FALSE;
+    sz = GetFileSize(f, NULL); if (sz < 0x4C || sz > 262144) { CloseHandle(f); return FALSE; }
+    b = (BYTE *)malloc(sz + 4); if (!b) { CloseHandle(f); return FALSE; }
+    if (!ReadFile(f, b, sz, &rd, NULL) || rd != sz || *(DWORD *)b != 0x4C) { free(b); CloseHandle(f); return FALSE; }
+    CloseHandle(f); memset(b + sz, 0, 4);
+    flags = *(DWORD *)(b + 0x14); off = 0x4C;
+    if (flags & 1) { if (off + 2 > sz) goto done; off += 2 + *(WORD *)(b + off); }
+    if ((flags & 2) && off + 0x1C <= sz) {                                  /* LinkInfo -> local base path (ANSI) */
+        DWORD lis = *(DWORD *)(b + off), lif = *(DWORD *)(b + off + 8), lbo = *(DWORD *)(b + off + 16);
+        if ((lif & 1) && lbo && off + lbo < sz) { MultiByteToWideChar(CP_ACP, 0, (const char *)(b + off + lbo), -1, target, MAX_PATH); ok = target[0] != 0; }
+        if (lis > 0 && off + lis <= sz) off += lis; else goto done;
+    }
+    {   int k; for (k = 0; k < 5; k++) {                                     /* name, relative path, working dir, arguments, icon */
+            static const DWORD bit[5] = { 4, 8, 16, 32, 64 }; WORD n; const BYTE *p;
+            if (!(flags & bit[k])) continue;
+            if (off + 2 > sz) goto done;
+            n = *(WORD *)(b + off); p = b + off + 2; off += 2 + ((flags & 0x80) ? n * 2 : n);
+            if (off > sz) goto done;
+            if (k == 4 && n > 0 && n < MAX_PATH) { if (flags & 0x80) { memcpy(icon, p, n * 2); icon[n] = 0; } else MultiByteToWideChar(CP_ACP, 0, (const char *)p, n, icon, MAX_PATH - 1); }
+        }
+        if (icon[0] && off + 4 <= sz) {}
+    }
+done:
+    free(b); return ok || icon[0];
+}
+static HICON ExeLargeIcon(const wchar_t *path, int idx) { HICON ic = NULL; if (ExtractIconExW(path, idx, &ic, NULL, 1) < 1) ic = NULL; return ic; }
 static HICON PathIcon(const wchar_t *path) {
-    int i; SHFILEINFOW fi; HICON ic = NULL;
+    int i, idx = 0; SHFILEINFOW fi; HICON ic = NULL; const wchar_t *dot = wcsrchr(path, L'.');
     for (i = 0; i < g_nic; i++) if (!_wcsicmp(g_ic[i].p, path)) return g_ic[i].ic;
-    memset(&fi, 0, sizeof fi);
-    if (SHGetFileInfoW(path, 0, &fi, sizeof fi, SHGFI_ICON | SHGFI_LARGEICON)) ic = fi.hIcon;
+    if (dot && !_wcsicmp(dot, L".lnk")) {
+        wchar_t tg[MAX_PATH], ico[MAX_PATH];
+        if (LnkResolve(path, tg, ico, &idx)) {
+            if (ico[0]) ic = ExeLargeIcon(ico, 0);
+            if (!ic && tg[0]) ic = ExeLargeIcon(tg, 0);
+        }
+    } else if (dot && (!_wcsicmp(dot, L".exe") || !_wcsicmp(dot, L".ico") || !_wcsicmp(dot, L".dll"))) ic = ExeLargeIcon(path, 0);
+    if (!ic) { memset(&fi, 0, sizeof fi); if (SHGetFileInfoW(path, 0, &fi, sizeof fi, SHGFI_ICON | SHGFI_LARGEICON)) ic = fi.hIcon; }
     if (!ic) ic = LoadIconW(NULL, IDI_APPLICATION);
-    if (g_nic >= 200) { for (i = 0; i < g_nic; i++) if (g_ic[i].ic) DestroyIcon(g_ic[i].ic); g_nic = 0; }
+    if (g_nic >= 240) { for (i = 0; i < g_nic; i++) if (g_ic[i].ic) DestroyIcon(g_ic[i].ic); g_nic = 0; }
     wcsncpy(g_ic[g_nic].p, path, MAX_PATH - 1); g_ic[g_nic].p[MAX_PATH - 1] = 0; g_ic[g_nic].ic = ic; g_nic++;
     return ic;
 }

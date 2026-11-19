@@ -7,8 +7,7 @@ Plain Win32 C, built with mingw-w64 (no .NET / WPF / UWP / DWM).
 | Program | What it is |
 |---|---|
 | `MontySetup64.exe` / `MontySetup32.exe` | Installer (both apps embedded). Run once, press **Install / Update**. |
-| `MontyShell.exe` | Taskbar, reveal bar, hover previews, Start panel, desktop mode, custom cursor, keyboard signal, **Settings**. |
-| `WindowLookChanger.exe` | Title-bar skinner (started/controlled by MontyShell; transparency, themes, 25 icon presets). |
+| `MontyShell.exe` | ONE program: taskbar, reveal bar, previews, all-windows view, Start panel, desktop mode, cursor, keyboard signal, **Settings** and the **window look changer / Theme Lab**. |
 
 Open settings: run `MontyShell.exe` again (single instance).  Command line: `/bg` start hidden, `/settings`, `/restart`.
 

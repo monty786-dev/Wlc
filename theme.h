@@ -162,6 +162,15 @@ static void InitThemes(void) {
         .txtA=RGB(76,76,76),.txtI=RGB(160,160,160),.border=RGB(190,190,190),
         .sWindow=W_,.sFace=RGB(246,246,246),.sText=RGB(40,40,40),.sHilite=RGB(0,122,255),
         .sShadow=RGB(205,205,205),.sLight=W_,.sScroll=RGB(250,250,250),.sWork=RGB(150,160,180),.scrollW=12,.menuH=22)
+    DEF(.name=L"Cinnamon", .shape=2,.height=30,.radius=6,.bw=22,.bh=22,.bt=4,.closeW=22,.gap=5,.rmargin=8,.center=1,.fsize=9,.font=L"Noto Sans",
+        .tTop=RGB(56,56,56),.tBot=RGB(44,44,44),.tTopI=RGB(70,70,70),.tBotI=RGB(62,62,62),.txtA=RGB(225,225,225),.txtI=RGB(140,140,140),.border=RGB(30,30,30),
+        .bFace=RGB(80,80,80),.bHover=RGB(222,121,32),.glyph=RGB(225,225,225),.closeFace=RGB(80,80,80),.closeHover=RGB(220,70,50),.closeGlyph=W_,
+        .sWindow=W_,.sFace=RGB(238,238,238),.sText=RGB(50,50,50),.sHilite=RGB(222,121,32),.sShadow=RGB(190,190,190),.sLight=W_,.sScroll=RGB(232,232,232),.sWork=RGB(70,70,70),.scrollW=14,.menuH=24)
+
+    DEF(.name=L"Arch Linux", .height=30,.bw=40,.bh=30,.closeW=40,.fsize=9,.font=L"DejaVu Sans",
+        .tTop=RGB(23,24,28),.tBot=RGB(23,24,28),.tTopI=RGB(35,37,43),.tBotI=RGB(35,37,43),.txtA=RGB(220,225,230),.txtI=RGB(120,125,135),.border=RGB(23,147,209),
+        .bHover=RGB(40,44,52),.closeHover=RGB(230,70,70),.glyph=RGB(220,225,230),
+        .sWindow=RGB(30,32,38),.sFace=RGB(38,41,48),.sText=RGB(220,225,230),.sHilite=RGB(23,147,209),.sHiliteText=W_,.sShadow=RGB(20,21,25),.sLight=RGB(60,64,74),.sScroll=RGB(30,32,38),.sWork=RGB(18,19,23),.scrollW=12,.menuH=22)
 #undef DEF
     g_nbuiltin = g_nthemes;
 }

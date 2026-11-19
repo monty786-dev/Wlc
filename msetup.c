@@ -1,7 +1,7 @@
 /*
  * Taskbar & Desktop by Monty - Setup (plain Win32 C, mingw-w64).
- * Embeds MontyShell.exe (resource 1) and WindowLookChanger.exe (resource 2).
- *  Install  : copies both exes to %APPDATA%\MontyShell, registry settings + uninstall entry, optional autostart,
+ * Embeds MontyShell.exe (resource 1) - the window look changer is part of it.
+ *  Install  : copies the exe to "C:\Program Files\Monty Shell" (falls back to %APPDATA%), registry settings + uninstall entry, optional autostart,
  *             optional default-shell replacement (wfm.exe, backed up), optional Wine tweaks (every old value is saved
  *             and restored on uninstall), optional .wlct association.
  *  Uninstall: restores system look, wfm.exe and every tweaked registry value, removes keys and files.
@@ -36,11 +36,22 @@ static void Log(const wchar_t *fmt, ...) {
     if (g_hLog) { SetWindowTextW(g_hLog, g_log); SendMessageW(g_hLog, EM_LINESCROLL, 0, 1000); }
 }
 static void Progress(int p) { g_prog = p; if (g_main) { InvalidateRect(g_main, NULL, FALSE); UpdateWindow(g_main); } Pump(); }
-static void InitDir(void) {
-    wchar_t a[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"APPDATA", a, MAX_PATH);
-    if (!n || n >= MAX_PATH) wcscpy(a, L"C:\\users\\Public");
-    _snwprintf(g_dir, MAX_PATH - 1, L"%ls\\MontyShell", a); g_dir[MAX_PATH - 1] = 0;
-    _snwprintf(g_bak, MAX_PATH - 1, L"%ls\\uninstall.ini", g_dir); g_bak[MAX_PATH - 1] = 0;
+static void SetBak(void) { _snwprintf(g_bak, MAX_PATH - 1, L"%ls\\uninstall.ini", g_dir); g_bak[MAX_PATH - 1] = 0; }
+static void InitDir(void) {                                  /* Program Files like a normal Windows program; installed location wins on uninstall */
+    wchar_t a[MAX_PATH], d[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"ProgramFiles", a, MAX_PATH), sz = sizeof d, ty = 0; HKEY k;
+    if (!n || n >= MAX_PATH) wcscpy(a, L"C:\\Program Files");
+    _snwprintf(g_dir, MAX_PATH - 1, L"%ls\\Monty Shell", a); g_dir[MAX_PATH - 1] = 0;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\MontyShell", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+        if (RegQueryValueExW(k, L"InstallDir", NULL, &ty, (BYTE *)d, &sz) == ERROR_SUCCESS && ty == REG_SZ) { wcsncpy(g_dir, d, MAX_PATH - 1); g_dir[MAX_PATH - 1] = 0; }
+        RegCloseKey(k);
+    }
+    SetBak();
+}
+static BOOL EnsureDir(void) {                                /* cannot write to Program Files? use the user's AppData */
+    if (CreateDirectoryW(g_dir, NULL) || GetLastError() == ERROR_ALREADY_EXISTS) return TRUE;
+    { wchar_t a[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"APPDATA", a, MAX_PATH); if (!n || n >= MAX_PATH) wcscpy(a, L"C:\\users\\Public");
+      _snwprintf(g_dir, MAX_PATH - 1, L"%ls\\MontyShell", a); g_dir[MAX_PATH - 1] = 0; SetBak(); }
+    return CreateDirectoryW(g_dir, NULL) || GetLastError() == ERROR_ALREADY_EXISTS;
 }
 static BOOL RegStr(HKEY r, const wchar_t *sub, const wchar_t *name, const wchar_t *val) {
     HKEY k; LONG x = RegCreateKeyExW(r, sub, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL);
@@ -86,8 +97,7 @@ static void RevertTweaks(void) {
 static void StopApps(void) {
     HWND w; int i;
     w = FindWindowExW(HWND_MESSAGE, NULL, L"MontyMsg", NULL); if (w) PostMessageW(w, WM_APP + 6, 0, 0);
-    w = FindWindowW(L"WLCMain", NULL); if (w) PostMessageW(w, WM_APP + 2, 0, 0);
-    for (i = 0; i < 40; i++) { if (!FindWindowExW(HWND_MESSAGE, NULL, L"MontyMsg", NULL) && !FindWindowW(L"WLCMain", NULL)) break; Sleep(100); }
+    for (i = 0; i < 40; i++) { if (!FindWindowExW(HWND_MESSAGE, NULL, L"MontyMsg", NULL)) break; Sleep(100); }
 }
 static BOOL Extract(int id, const wchar_t *dest) {
     HRSRC r = FindResourceW(NULL, MAKEINTRESOURCEW(id), RT_RCDATA); HGLOBAL h; DWORD sz, wr; HANDLE f; void *p;
@@ -134,16 +144,17 @@ static void RestoreWfm(void) {
 }
 
 static void DoInstall(void) {
-    wchar_t t[MAX_PATH * 2], exe[MAX_PATH], wlc[MAX_PATH], self[MAX_PATH], setup[MAX_PATH];
-    if (g_busy) return; g_busy = 1; g_log[0] = 0; Log(L"Installing to %ls", g_dir); Progress(5);
+    wchar_t t[MAX_PATH * 2], exe[MAX_PATH], self[MAX_PATH], setup[MAX_PATH];
+    if (g_busy) return; g_busy = 1; g_log[0] = 0; Progress(5);
     StopApps(); Progress(12);
-    CreateDirectoryW(g_dir, NULL);
+    if (!EnsureDir()) { Log(L"ERROR: cannot create %ls (error %lu)", g_dir, GetLastError()); g_busy = 0; Progress(0); return; }
+    Log(L"Installing to %ls", g_dir);
     _snwprintf(t, MAX_PATH - 1, L"%ls\\themes", g_dir); CreateDirectoryW(t, NULL);
     _snwprintf(t, MAX_PATH - 1, L"%ls\\themes\\icons", g_dir); CreateDirectoryW(t, NULL);
-    _snwprintf(exe, MAX_PATH - 1, L"%ls\\MontyShell.exe", g_dir); _snwprintf(wlc, MAX_PATH - 1, L"%ls\\WindowLookChanger.exe", g_dir);
+    _snwprintf(exe, MAX_PATH - 1, L"%ls\\MontyShell.exe", g_dir);
     if (!Extract(1, exe)) { Log(L"ERROR: cannot write %ls (error %lu)", exe, GetLastError()); g_busy = 0; Progress(0); return; }
     Log(L"Copied MontyShell.exe"); Progress(35);
-    if (Extract(2, wlc)) Log(L"Copied WindowLookChanger.exe"); Progress(48);
+    Progress(48);
     GetModuleFileNameW(NULL, self, MAX_PATH); _snwprintf(setup, MAX_PATH - 1, L"%ls\\Setup.exe", g_dir); CopyFileW(self, setup, FALSE);
     WritePrivateProfileStringW(L"bak", NULL, NULL, g_bak); g_nbak = 0;
 
@@ -172,7 +183,7 @@ static void DoInstall(void) {
     }
     Progress(86);
     if (g_opt[3]) {
-        _snwprintf(t, MAX_PATH * 2 - 1, L"\"%ls\" \"%%1\"", wlc); t[MAX_PATH * 2 - 1] = 0;
+        _snwprintf(t, MAX_PATH * 2 - 1, L"\"%ls\" \"%%1\"", exe); t[MAX_PATH * 2 - 1] = 0;
         RegStr(HKEY_CURRENT_USER, L"Software\\Classes\\.wlct", NULL, L"WindowLookChanger.Theme");
         RegStr(HKEY_CURRENT_USER, L"Software\\Classes\\WindowLookChanger.Theme", NULL, L"Window Look Changer Theme");
         RegStr(HKEY_CURRENT_USER, L"Software\\Classes\\WindowLookChanger.Theme\\shell\\open\\command", NULL, t); Log(L".wlct association set");
@@ -184,7 +195,7 @@ static void DoInstall(void) {
 static void DoUninstall(void) {
     STARTUPINFOW si; PROCESS_INFORMATION pi; wchar_t cmd[MAX_PATH + 24], wlc[MAX_PATH]; HKEY k;
     if (g_busy) return; g_busy = 1; g_log[0] = 0; Progress(8); StopApps();
-    _snwprintf(wlc, MAX_PATH - 1, L"%ls\\WindowLookChanger.exe", g_dir); wlc[MAX_PATH - 1] = 0;
+    _snwprintf(wlc, MAX_PATH - 1, L"%ls\\MontyShell.exe", g_dir); wlc[MAX_PATH - 1] = 0;
     if (GetFileAttributesW(wlc) != INVALID_FILE_ATTRIBUTES) {
         _snwprintf(cmd, MAX_PATH + 23, L"\"%ls\" /restore", wlc); cmd[MAX_PATH + 23] = 0; memset(&si, 0, sizeof si); si.cb = sizeof si;
         if (CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, g_dir, &si, &pi)) { WaitForSingleObject(pi.hProcess, 8000); CloseHandle(pi.hProcess); CloseHandle(pi.hThread); Log(L"System colours restored"); }
